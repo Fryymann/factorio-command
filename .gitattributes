@@ -1,0 +1,3 @@
+* text=auto eol=lf
+artifacts/*.html linguist-vendored
+data/*.json linguist-generated
