@@ -1,0 +1,1001 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Factorio Chain Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: control strip, summary row, then tabs (Layout canvas + row list | Flow chart | Numbers). Same dark steel + amber identity as the v1 planner. */
+:root {
+  --bg: #15171a; --panel: #1d2024; --panel-2: #24282d; --line: #343a41;
+  --fg: #e7e3d9; --muted: #959891; --accent: #e2a23a; --accent-ink: #1a1408;
+  --warn: #e0703a; --ok: #7fb069; --import: #6fa8dc;
+  --canvas: #111315; --grid: #22262b; --machine: #2b3036; --machine-line: #4a525b;
+  --belt-1: #c9a227; --belt-2: #c8483d; --belt-3: #3f86cf; --belt-4: #4fae73;
+  --ins-basic: #d8b23c; --ins-fast: #4b93dc; --ins-bulk: #62b85f; --ins-long: #cf5a45;
+  --pole: #9a7448; --pipe: #6f93a8;
+  --sw-raw: #7d7a74; --sw-plate: #a9b1b8; --sw-mid: #c49a5a; --sw-part: #8f8a7e;
+  --sw-red: #d9473d; --sw-green: #5fb84a; --sw-mil: #7f8487; --sw-blue: #3f8fd9; --sw-purple: #9a57c9; --sw-yellow: #e2c33a; --sw-fluid: #4a7f9c;
+  --item-l: 62%;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eceeef; --panel: #ffffff; --panel-2: #f4f5f6; --line: #d3d7db;
+    --fg: #1b1e21; --muted: #5f6468; --accent: #a8670c; --accent-ink: #ffffff;
+    --warn: #b9471a; --ok: #3f7d2a; --import: #2c6aa3;
+    --canvas: #e3e6e8; --grid: #d2d6da; --machine: #f7f8f9; --machine-line: #8f979e;
+    --belt-1: #b38a10; --belt-2: #b23a30; --belt-3: #2c6fb5; --belt-4: #2f8a52;
+    --ins-basic: #a9840f; --ins-fast: #2b6fb8; --ins-bulk: #3c8a39; --ins-long: #b0402d;
+    --pole: #7a5530; --pipe: #4f7488; --item-l: 42%;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eceeef; --panel: #ffffff; --panel-2: #f4f5f6; --line: #d3d7db;
+  --fg: #1b1e21; --muted: #5f6468; --accent: #a8670c; --accent-ink: #ffffff;
+  --warn: #b9471a; --ok: #3f7d2a; --import: #2c6aa3;
+  --canvas: #e3e6e8; --grid: #d2d6da; --machine: #f7f8f9; --machine-line: #8f979e;
+  --belt-1: #b38a10; --belt-2: #b23a30; --belt-3: #2c6fb5; --belt-4: #2f8a52;
+  --ins-basic: #a9840f; --ins-fast: #2b6fb8; --ins-bulk: #3c8a39; --ins-long: #b0402d;
+  --pole: #7a5530; --pipe: #4f7488; --item-l: 42%;
+  color-scheme: light;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 3px solid var(--accent); padding-bottom: 10px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .08em; text-transform: uppercase; margin: 0; color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 14px; min-width: 0; }
+
+/* controls */
+.controls { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(230px, 2fr) repeat(5, minmax(110px, 1fr)); gap: 12px; align-items: end; }
+@media (max-width: 1150px) { .controls { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .controls { grid-template-columns: minmax(0, 1fr); } }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field > label, .field > .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+select, input[type=number] { width: 100%; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); padding: 8px 9px; font: 500 14px var(--body); border-radius: 0; }
+input[type=number] { font-family: var(--mono); }
+select:focus-visible, input:focus-visible, button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.target-row { display: flex; }
+.target-row input { flex: 1 1 auto; min-width: 0; }
+.seg { display: flex; border: 1px solid var(--line); }
+.seg button { background: var(--panel-2); color: var(--muted); border: 0; padding: 8px 10px; font: 600 12px var(--body); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.equiv { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* summary */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; min-width: 0; }
+.stat .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stat .v { font-family: var(--display); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .v small { font-family: var(--body); font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.stat.primary { border-color: var(--accent); }
+
+/* tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); font: 600 16px var(--display); letter-spacing: .08em; text-transform: uppercase; padding: 8px 16px 6px; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.btn { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); padding: 6px 11px; font: 600 12px var(--body); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* layout */
+.lay-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.lay-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
+@media (max-width: 960px) { .lay-grid { grid-template-columns: minmax(0, 1fr); } }
+.viewport { position: relative; height: min(72vh, 760px); min-height: 380px; border: 1px solid var(--line); background: var(--canvas); overflow: hidden; }
+.viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.viewport canvas.drag { cursor: grabbing; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); padding: 5px 8px; font: 500 12px var(--body); color: var(--fg); white-space: nowrap; z-index: 2; }
+.hint { position: absolute; left: 8px; bottom: 6px; font: 500 11px var(--body); color: var(--muted); pointer-events: none; }
+.rowlist { display: grid; gap: 6px; align-content: start; max-height: min(72vh, 760px); overflow-y: auto; min-width: 0; }
+.rowcard { background: var(--panel-2); border: 1px solid var(--line); padding: 8px 10px; text-align: left; color: var(--fg); font: inherit; cursor: pointer; display: grid; gap: 3px; width: 100%; }
+.rowcard:hover { border-color: var(--accent); }
+.rowcard .t { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.rowcard .m { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.rowcard .w { font-size: 12px; color: var(--warn); }
+.lane { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { width: 14px; height: 14px; display: inline-block; border: 1px solid var(--line); }
+.bpbox { margin-top: 12px; display: grid; gap: 6px; }
+.bpbox textarea { width: 100%; height: 72px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); font: 12px var(--mono); padding: 8px; resize: vertical; }
+
+/* flow */
+.flowscroll { overflow: auto; max-height: 78vh; border: 1px solid var(--line); background: var(--canvas); }
+.flowscroll svg { display: block; }
+
+/* tables */
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.tscroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--mono); }
+td.big { font-family: var(--mono); font-weight: 600; font-size: 15px; text-align: right; }
+td .exact { color: var(--muted); font-weight: 400; font-size: 12px; margin-right: 6px; }
+tr:last-child td { border-bottom: 0; }
+.item { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 12px; height: 12px; flex: 0 0 12px; border: 1px solid rgba(0,0,0,.35); display: inline-block; }
+.mach { color: var(--muted); font-size: 13px; }
+.pill { font: 600 10.5px var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.pill:hover { border-color: var(--import); color: var(--import); }
+.pill.on { background: var(--import); border-color: var(--import); color: var(--bg); }
+.tag { font: 600 10px var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 2px 5px; border: 1px solid var(--warn); color: var(--warn); }
+.empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+.notes { color: var(--muted); font-size: 12.5px; max-width: 80ch; display: grid; gap: 6px; }
+.notes p { margin: 0; }
+.warnbox { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--panel); color: var(--fg); font-size: 13px; }
+.warns { display: grid; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Factorio Chain Planner</h1>
+    <span class="sub">Space Age · Nauvis recipes · v2 with layout generator</span>
+  </header>
+
+  <section class="panel controls" aria-label="Plan settings">
+    <div class="field">
+      <label for="item">Final product</label>
+      <select id="item"></select>
+    </div>
+    <div class="field">
+      <span class="lbl">Target</span>
+      <div class="target-row">
+        <input id="amount" type="number" min="0" step="any" value="8" aria-label="Target amount">
+        <div class="seg" role="group" aria-label="Target mode">
+          <button type="button" id="mode-buildings" aria-pressed="true">Buildings</button>
+          <button type="button" id="mode-rate" aria-pressed="false">Per min</button>
+        </div>
+      </div>
+      <span class="equiv" id="equiv"></span>
+    </div>
+    <div class="field">
+      <label for="asm">Assembler</label>
+      <select id="asm">
+        <option value="0.5">Assembler 1 (0.5)</option>
+        <option value="0.75">Assembler 2 (0.75)</option>
+        <option value="1.25">Assembler 3 (1.25)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="furn">Furnace</label>
+      <select id="furn">
+        <option value="stone">Stone furnace (1)</option>
+        <option value="steel">Steel furnace (2)</option>
+        <option value="electric">Electric furnace (2)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="belt">Belt</label>
+      <select id="belt">
+        <option value="15">Transport belt (15/s)</option>
+        <option value="30">Fast belt (30/s)</option>
+        <option value="45">Express belt (45/s)</option>
+        <option value="60">Turbo belt (60/s)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="ins">Inserter</label>
+      <select id="ins">
+        <option value="basic">Inserter</option>
+        <option value="fast">Fast inserter</option>
+        <option value="bulk">Bulk inserter</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="unit">Show rates</label>
+      <select id="unit">
+        <option value="60">per minute</option>
+        <option value="1">per second</option>
+      </select>
+    </div>
+  </section>
+
+  <div id="warnings" class="warns"></div>
+
+  <section class="summary" aria-label="Summary">
+    <div class="stat primary"><div class="k">Output</div><div class="v" id="s-out">–</div></div>
+    <div class="stat"><div class="k">Buildings to place</div><div class="v" id="s-bld">–</div></div>
+    <div class="stat"><div class="k">Footprint</div><div class="v" id="s-foot">–</div></div>
+    <div class="stat"><div class="k">Belt pieces</div><div class="v" id="s-belts">–</div></div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button type="button" role="tab" id="tab-layout" aria-selected="true" aria-controls="view-layout">Layout</button>
+    <button type="button" role="tab" id="tab-flow" aria-selected="false" aria-controls="view-flow">Flow chart</button>
+    <button type="button" role="tab" id="tab-numbers" aria-selected="false" aria-controls="view-numbers">Numbers</button>
+  </nav>
+
+  <section class="panel" id="view-layout" role="tabpanel" aria-labelledby="tab-layout">
+    <div class="lay-head">
+      <h2>Belt layout</h2>
+      <div class="tools">
+        <label class="lane" for="maxrow">Max machines per row</label>
+        <input id="maxrow" type="number" min="1" max="40" step="1" value="12" style="width:70px" aria-label="Max machines per row">
+        <button type="button" class="btn" id="z-out" aria-label="Zoom out">−</button>
+        <button type="button" class="btn" id="z-in" aria-label="Zoom in">+</button>
+        <button type="button" class="btn" id="z-fit">Fit</button>
+        <button type="button" class="btn primary" id="bp-copy">Copy blueprint</button>
+      </div>
+    </div>
+    <div class="lay-grid">
+      <div class="viewport" id="vp">
+        <canvas id="cv" aria-label="Factory layout, tile by tile"></canvas>
+        <div class="tip" id="tip" hidden></div>
+        <div class="hint">Drag to pan · Ctrl + scroll or pinch to zoom · hover a tile for details</div>
+      </div>
+      <aside class="rowlist" id="rowlist" aria-label="Rows"></aside>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="bpbox" id="bpbox" hidden>
+      <label class="lane" for="bptext">Blueprint string. Paste it in Factorio with Import string.</label>
+      <textarea id="bptext" readonly></textarea>
+      <span class="sub" id="bpnote"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="view-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
+    <div class="lay-head"><h2>Production chain</h2><span class="sub">Raw inputs on the left, final product on the right. Line thickness follows item rate.</span></div>
+    <div class="flowscroll" id="flow"></div>
+  </section>
+
+  <section id="view-numbers" role="tabpanel" aria-labelledby="tab-numbers" hidden>
+    <div class="grid2">
+      <section class="panel">
+        <h2 style="margin-bottom:10px">Build list</h2>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>Item</th><th class="num" id="th-rate">/min</th><th>Made in</th><th class="num">Buildings</th><th></th></tr></thead>
+            <tbody id="build"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel">
+        <h2 style="margin-bottom:10px">Inputs</h2>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>Item</th><th class="num" id="th-rate2">/min</th><th class="num">Belt lanes</th><th class="num">Belts</th><th></th></tr></thead>
+            <tbody id="inputs"></tbody>
+          </table>
+        </div>
+        <p class="sub" style="margin:10px 0 0">Mark an item <b>Import</b> to bring it in on the bus instead of building it here. It then enters the layout as a raw input column.</p>
+      </section>
+    </div>
+  </section>
+
+  <section class="notes">
+    <p><b>How the layout works:</b> raw inputs and every intermediate get their own column on a main bus on the left, flowing down. Each recipe gets a row of machines: one input belt carries two ingredients on separate lanes, a second belt with long-handed inserters carries a third and fourth, and the output belt returns to the bus and starts that item's column. Feeders split off the bus and cross it with underground belts. Rows split automatically when a lane or the output belt would be over capacity, or past the max machines per row.</p>
+    <p><b>Before you build it:</b> fluids are drawn as pipe guides along each row and are left out of the blueprint, since chemical plants and fluid recipes need their pipe connections placed by hand. Connect the rows to your power network; each row has its own small poles. Inserter speeds are approximate chest-to-chest figures without stack bonus research.</p>
+    <p><b>Not modelled yet:</b> modules, beacons, productivity bonuses, oil refining, foundry, electromagnetic plant, and recipes from other planets. Items tagged <span class="tag">check</span> are recipes worth comparing with the in-game tooltip.</p>
+  </section>
+</div>
+
+<script id="core">
+// ---------- data ----------
+const ITEMS = {
+  "iron-ore": ["Iron ore", "raw"], "copper-ore": ["Copper ore", "raw"], "stone": ["Stone", "raw"], "coal": ["Coal", "raw"],
+  "water": ["Water", "fluid", true], "petroleum-gas": ["Petroleum gas", "fluid", true], "heavy-oil": ["Heavy oil", "fluid", true],
+  "iron-plate": ["Iron plate", "plate"], "copper-plate": ["Copper plate", "plate"], "stone-brick": ["Stone brick", "plate"], "steel-plate": ["Steel plate", "plate"],
+  "iron-gear-wheel": ["Iron gear wheel", "mid"], "copper-cable": ["Copper cable", "mid"], "iron-stick": ["Iron stick", "mid"], "pipe": ["Pipe", "mid"],
+  "electronic-circuit": ["Electronic circuit", "green"], "advanced-circuit": ["Advanced circuit", "red"], "processing-unit": ["Processing unit", "blue"],
+  "plastic-bar": ["Plastic bar", "mid"], "sulfur": ["Sulfur", "yellow"], "sulfuric-acid": ["Sulfuric acid", "fluid", true], "lubricant": ["Lubricant", "fluid", true],
+  "engine-unit": ["Engine unit", "mid"], "electric-engine-unit": ["Electric engine unit", "mid"], "battery": ["Battery", "mid"],
+  "flying-robot-frame": ["Flying robot frame", "mid"], "low-density-structure": ["Low density structure", "mid"],
+  "inserter": ["Inserter", "part"], "transport-belt": ["Transport belt", "part"], "firearm-magazine": ["Firearm magazine", "part"],
+  "piercing-rounds-magazine": ["Piercing rounds magazine", "part"], "grenade": ["Grenade", "part"], "stone-wall": ["Wall", "part"],
+  "rail": ["Rail", "part"], "electric-furnace": ["Electric furnace", "part"], "productivity-module": ["Productivity module", "part"],
+  "automation-science-pack": ["Automation science (red)", "red"], "logistic-science-pack": ["Logistic science (green)", "green"],
+  "military-science-pack": ["Military science (grey)", "mil"], "chemical-science-pack": ["Chemical science (blue)", "blue"],
+  "production-science-pack": ["Production science (purple)", "purple"], "utility-science-pack": ["Utility science (yellow)", "yellow"],
+};
+const R = (time, out, ins, kind = "craft", check = false) => ({ time, out, ins, kind, check });
+const RECIPES = {
+  "iron-plate": R(3.2, 1, { "iron-ore": 1 }, "smelt"),
+  "copper-plate": R(3.2, 1, { "copper-ore": 1 }, "smelt"),
+  "stone-brick": R(3.2, 1, { "stone": 2 }, "smelt"),
+  "steel-plate": R(16, 1, { "iron-plate": 5 }, "smelt"),
+  "iron-gear-wheel": R(0.5, 1, { "iron-plate": 2 }),
+  "copper-cable": R(0.5, 2, { "copper-plate": 1 }),
+  "iron-stick": R(0.5, 2, { "iron-plate": 1 }),
+  "pipe": R(0.5, 1, { "iron-plate": 1 }),
+  "electronic-circuit": R(0.5, 1, { "iron-plate": 1, "copper-cable": 3 }),
+  "advanced-circuit": R(6, 1, { "plastic-bar": 2, "copper-cable": 4, "electronic-circuit": 2 }),
+  "processing-unit": R(10, 1, { "electronic-circuit": 20, "advanced-circuit": 2, "sulfuric-acid": 5 }, "fluidcraft"),
+  "plastic-bar": R(1, 2, { "petroleum-gas": 20, "coal": 1 }, "chem"),
+  "sulfur": R(1, 2, { "water": 30, "petroleum-gas": 30 }, "chem"),
+  "sulfuric-acid": R(1, 50, { "iron-plate": 1, "sulfur": 5, "water": 100 }, "chem"),
+  "lubricant": R(1, 10, { "heavy-oil": 10 }, "chem"),
+  "engine-unit": R(10, 1, { "steel-plate": 1, "iron-gear-wheel": 1, "pipe": 2 }),
+  "electric-engine-unit": R(10, 1, { "engine-unit": 1, "electronic-circuit": 2, "lubricant": 15 }, "fluidcraft"),
+  "battery": R(4, 1, { "iron-plate": 1, "copper-plate": 1, "sulfuric-acid": 20 }, "chem"),
+  "flying-robot-frame": R(20, 1, { "electric-engine-unit": 1, "battery": 2, "steel-plate": 1, "electronic-circuit": 3 }),
+  "low-density-structure": R(15, 1, { "steel-plate": 2, "copper-plate": 20, "plastic-bar": 5 }, "craft", true),
+  "inserter": R(0.5, 1, { "electronic-circuit": 1, "iron-gear-wheel": 1, "iron-plate": 1 }),
+  "transport-belt": R(0.5, 2, { "iron-gear-wheel": 1, "iron-plate": 1 }),
+  "firearm-magazine": R(1, 1, { "iron-plate": 4 }),
+  "piercing-rounds-magazine": R(3, 1, { "firearm-magazine": 1, "steel-plate": 1, "copper-plate": 5 }, "craft", true),
+  "grenade": R(8, 1, { "coal": 10, "iron-plate": 5 }),
+  "stone-wall": R(0.5, 1, { "stone-brick": 5 }),
+  "rail": R(0.5, 2, { "stone": 1, "steel-plate": 1, "iron-stick": 1 }),
+  "electric-furnace": R(5, 1, { "steel-plate": 10, "advanced-circuit": 5, "stone-brick": 10 }),
+  "productivity-module": R(15, 1, { "advanced-circuit": 5, "electronic-circuit": 5 }),
+  "automation-science-pack": R(5, 1, { "copper-plate": 1, "iron-gear-wheel": 1 }),
+  "logistic-science-pack": R(6, 1, { "inserter": 1, "transport-belt": 1 }),
+  "military-science-pack": R(10, 2, { "piercing-rounds-magazine": 1, "grenade": 1, "stone-wall": 2 }, "craft", true),
+  "chemical-science-pack": R(24, 2, { "engine-unit": 2, "advanced-circuit": 3, "sulfur": 1 }),
+  "production-science-pack": R(21, 3, { "electric-furnace": 1, "productivity-module": 1, "rail": 30 }),
+  "utility-science-pack": R(21, 3, { "low-density-structure": 3, "processing-unit": 2, "flying-robot-frame": 1 }),
+};
+const FURNACE = { stone: ["Stone furnace", 1, "stone-furnace", 2], steel: ["Steel furnace", 2, "steel-furnace", 2], electric: ["Electric furnace", 2, "electric-furnace", 3] };
+const ASM_NAME = { "0.5": "Assembling machine 1", "0.75": "Assembling machine 2", "1.25": "Assembling machine 3" };
+const ASM_ENT = { "0.5": "assembling-machine-1", "0.75": "assembling-machine-2", "1.25": "assembling-machine-3" };
+const BELT_TIERS = {
+  "15": { name: "Transport belt", belt: "transport-belt", ug: "underground-belt", sp: "splitter", U: 4, tok: "--belt-1" },
+  "30": { name: "Fast belt", belt: "fast-transport-belt", ug: "fast-underground-belt", sp: "fast-splitter", U: 6, tok: "--belt-2" },
+  "45": { name: "Express belt", belt: "express-transport-belt", ug: "express-underground-belt", sp: "express-splitter", U: 8, tok: "--belt-3" },
+  "60": { name: "Turbo belt", belt: "turbo-transport-belt", ug: "turbo-underground-belt", sp: "turbo-splitter", U: 10, tok: "--belt-4" },
+};
+const INSERTERS = {
+  basic: { name: "Inserter", ent: "inserter", cap: 0.83, tok: "--ins-basic" },
+  fast: { name: "Fast inserter", ent: "fast-inserter", cap: 2.31, tok: "--ins-fast" },
+  bulk: { name: "Bulk inserter", ent: "bulk-inserter", cap: 4.6, tok: "--ins-bulk" },
+};
+const LONG = { name: "Long-handed inserter", ent: "long-handed-inserter", cap: 1.15, tok: "--ins-long" };
+const FUEL = 0.09 / 4; // coal per second for one burner furnace (90 kW, coal 4 MJ)
+
+const nm = id => ITEMS[id] ? ITEMS[id][0] : id;
+const isFluid = id => !!(ITEMS[id] && ITEMS[id][2]);
+
+// ---------- solver ----------
+function machineFor(st, kind, warnings) {
+  if (kind === "smelt") { const [n, s, ent, size] = FURNACE[st.furn]; return { name: n, speed: s, ent, size, burner: st.furn !== "electric" }; }
+  if (kind === "chem") return { name: "Chemical plant", speed: 1, ent: "chemical-plant", size: 3 };
+  let sp = st.asm;
+  if (kind === "fluidcraft" && sp === "0.5") { sp = "0.75"; warnings && warnings.add("Recipes with fluid ingredients need Assembling machine 2 or better. Those rows use Assembling machine 2."); }
+  return { name: ASM_NAME[sp], speed: parseFloat(sp), ent: ASM_ENT[sp], size: 3 };
+}
+function targetRate(st) {
+  const r = RECIPES[st.item];
+  const amt = Math.max(0, Number(st.amount) || 0);
+  if (st.mode === "rate") return amt / 60;
+  const m = machineFor(st, r.kind);
+  return amt * m.speed * r.out / r.time;
+}
+function solve(st) {
+  const warnings = new Set();
+  const imports = new Set((st.imports || []).filter(i => i !== st.item));
+  const made = new Map(), inputs = new Map();
+  function expand(id, rate, depth) {
+    const recipe = RECIPES[id];
+    const isLeaf = !recipe || (depth > 0 && imports.has(id));
+    const node = { id, rate, depth, children: [], leaf: isLeaf, imported: isLeaf && !!recipe };
+    if (isLeaf) { const cur = inputs.get(id) || { rate: 0, imported: !!recipe, fuel: 0 }; cur.rate += rate; inputs.set(id, cur); return node; }
+    const m = machineFor(st, recipe.kind, warnings);
+    const crafts = rate / recipe.out;
+    node.machine = m; node.count = crafts * recipe.time / m.speed;
+    const cur = made.get(id) || { rate: 0, depth: 0 };
+    cur.rate += rate; cur.depth = Math.max(cur.depth, depth); made.set(id, cur);
+    for (const [inId, qty] of Object.entries(recipe.ins)) node.children.push(expand(inId, crafts * qty, depth + 1));
+    return node;
+  }
+  const tree = expand(st.item, targetRate(st), 0);
+  const build = [...made.entries()].map(([id, v]) => {
+    const r = RECIPES[id]; const m = machineFor(st, r.kind, warnings);
+    const exact = v.rate / r.out * r.time / m.speed;
+    return { id, rate: v.rate, depth: v.depth, machine: m, exact, count: Math.ceil(exact - 1e-9) };
+  }).sort((a, b) => a.depth - b.depth);
+  const edges = [];
+  for (const b of build) {
+    const r = RECIPES[b.id];
+    for (const [inId, q] of Object.entries(r.ins)) edges.push({ from: inId, to: b.id, rate: b.rate / r.out * q });
+    if (r.kind === "smelt" && b.machine.burner) {
+      const fuel = b.exact * FUEL;
+      edges.push({ from: "coal", to: b.id, rate: fuel, fuel: true });
+      const cur = inputs.get("coal") || { rate: 0, imported: false, fuel: 0 };
+      cur.rate += fuel; cur.fuel += fuel; inputs.set("coal", cur);
+    }
+  }
+  return { tree, build, inputs, warnings, edges };
+}
+
+// ---------- layout ----------
+function planLayout(sol, st) {
+  const tier = BELT_TIERS[st.belt], laneCap = Number(st.belt) / 2, U = tier.U;
+  const insT = INSERTERS[st.ins] || INSERTERS.fast;
+  const warn = [];
+  const recs = [...sol.build].sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : 1));
+  const made = new Set(recs.map(b => b.id));
+  const maxRow = Math.max(1, Math.floor(Number(st.maxRow) || 12));
+  const plans = [];
+  for (const b of recs) {
+    const r = RECIPES[b.id], m = b.machine, w = m.size;
+    const u = b.count ? b.exact / b.count : 0;
+    const cps = m.speed / r.time * u; // crafts per second per machine at the planned rate
+    const ings = Object.entries(r.ins).map(([id, q]) => ({ id, per: q * cps }));
+    if (r.kind === "smelt" && m.burner) ings.push({ id: "coal", per: FUEL * u, fuel: true });
+    const solids = ings.filter(i => !isFluid(i.id)).sort((a, c) => c.per - a.per);
+    const fluids = ings.filter(i => isFluid(i.id));
+    const fluidOut = isFluid(b.id);
+    const outPer = r.out * cps;
+    if (solids.length > 4) warn.push(`${nm(b.id)} has more than four solid ingredients; only four are belted.`);
+    let cap = maxRow;
+    for (const s of solids) cap = Math.min(cap, Math.floor(laneCap / s.per + 1e-9));
+    if (!fluidOut) cap = Math.min(cap, Math.floor(laneCap / outPer + 1e-9));
+    if (cap < 1) { cap = 1; warn.push(`One ${nm(b.id)} machine needs more than a full belt lane. Pick a faster belt.`); }
+    const nRows = Math.max(1, Math.ceil(b.count / cap));
+    const A = solids.slice(0, 2), C = solids.slice(2, 4);
+    const loadA = A.reduce((s, x) => s + x.per, 0), loadC = C.reduce((s, x) => s + x.per, 0);
+    const twoA = w === 3 && C.length === 0 && loadA > insT.cap;
+    const twoOut = w === 3 && !fluidOut && outPer > insT.cap;
+    const rowWarn = [];
+    if (loadA > insT.cap * (twoA ? 2 : 1)) rowWarn.push(`Input inserters are too slow (${loadA.toFixed(2)}/s per machine). Use a faster inserter.`);
+    if (loadC > LONG.cap) rowWarn.push(`Long-handed inserter can't keep up (${loadC.toFixed(2)}/s per machine).`);
+    if (!fluidOut && outPer > insT.cap * (twoOut ? 2 : 1)) rowWarn.push(`Output inserters are too slow (${outPer.toFixed(2)}/s per machine).`);
+    let left = b.count;
+    for (let i = 0; i < nRows; i++) {
+      const n = Math.ceil(left / (nRows - i)); left -= n;
+      plans.push({ id: b.id, b, n, w, ent: m.ent, mname: m.name, recipe: r.kind === "smelt" ? null : b.id, A, C, fluids, fluidOut, outPer, part: i, parts: nRows, loadA, loadC, twoA, twoOut, rowWarn });
+    }
+  }
+
+  // bus columns: raw inputs first, then one per solid product in row order
+  const cols = [], colOf = new Map();
+  const addCol = (item, raw) => { const c = { item, k: cols.length, x: 3 * cols.length, raw, start: raw ? 0 : null, uses: [], rate: 0 }; cols.push(c); colOf.set(item, c); return c; };
+  for (const p of plans) for (const s of [...p.A, ...p.C]) if (!made.has(s.id) && !colOf.has(s.id)) addCol(s.id, true);
+  for (const b of recs) if (!isFluid(b.id)) addCol(b.id, false);
+  const xb = 3 * cols.length, jxA = xb + 2, rowX0 = jxA + 2;
+
+  // row geometry
+  let y = 2;
+  const rows = [];
+  for (const p of plans) {
+    const T = y, hasC = p.C.length > 0, lines = [];
+    let yA = null, yC = null, yI;
+    if (hasC) {
+      yC = T + 5; yA = T + 6; yI = T + 7;
+      if (p.C[1]) lines.push({ item: p.C[1].id, y: T + 1, kind: "C-s" });
+      lines.push({ item: p.C[0].id, y: T + 3, kind: "C-n" });
+      lines.push({ item: p.A[0].id, y: yC, kind: "A-n" });
+      if (p.A[1]) lines.push({ item: p.A[1].id, y: yI, kind: "A-s" });
+    } else if (p.A.length) {
+      yA = T + 2; yI = T + 3;
+      lines.push({ item: p.A[0].id, y: T + 1, kind: "A-n" });
+      if (p.A[1]) lines.push({ item: p.A[1].id, y: yI, kind: "A-s" });
+    } else yI = T + 1;
+    const yM = yI + 1, h = p.w;
+    let next = yM + h, yO = null, yB = null;
+    if (!p.fluidOut) { yO = next; yB = next + 1; next += 2; }
+    const pipes = [];
+    for (const f of p.fluids) pipes.push({ item: f.id, y: next++, dir: "in" });
+    if (p.fluidOut) pipes.push({ item: p.id, y: next++, dir: "out" });
+    const rowEnd = rowX0 + p.n * p.w - 1, jxC = rowEnd + 2;
+    rows.push({ ...p, T, yA, yC, yI, yM, yO, yB, pipes, lines, hasC, rowEnd, jxC, bottom: next - 1 });
+    for (const L of lines) colOf.get(L.item).uses.push(L.y);
+    if (!p.fluidOut && p.part === 0) colOf.get(p.id).start = yB;
+    y = next + 1;
+  }
+  const maxY = y;
+  for (const c of cols) c.uses.sort((a, b) => a - b);
+  for (const [id, v] of sol.inputs) if (colOf.has(id)) colOf.get(id).rate = v.rate;
+  for (const b of recs) if (colOf.has(b.id)) colOf.get(b.id).rate = b.rate;
+  for (const c of cols) if (c.rate > Number(st.belt) + 1e-9) warn.push(`${nm(c.item)} needs ${(c.rate / Number(st.belt)).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`);
+
+  // placement
+  const G = new Map(), ents = [], pairs = [];
+  let conflicts = 0;
+  const key = (x, yy) => x + "," + yy;
+  const put = e => {
+    e.w = e.w || 1; e.h = e.h || 1;
+    for (let dx = 0; dx < e.w; dx++) for (let dy = 0; dy < e.h; dy++) { const k = key(e.x + dx, e.y + dy); if (G.has(k)) conflicts++; G.set(k, e); }
+    ents.push(e); return e;
+  };
+  const belt = (x, yy, dir, item, lanes) => put({ t: "belt", x, y: yy, dir, item, lanes });
+
+  for (const r of rows) {
+    const w = r.w;
+    for (let i = 0; i < r.n; i++) {
+      const mx = rowX0 + i * w;
+      put({ t: "machine", x: mx, y: r.yM, w, h: w, item: r.id, ent: r.ent, mname: r.mname, recipe: r.recipe });
+      if (w === 3) {
+        if (r.A.length) put({ t: "ins", x: mx, y: r.yI, ins: insT });
+        if (r.hasC) put({ t: "ins", x: mx + 1, y: r.yI, ins: LONG, long: true });
+        else if (r.twoA) put({ t: "ins", x: mx + 1, y: r.yI, ins: insT });
+        put({ t: "pole", x: mx + 2, y: r.yI });
+        if (!r.fluidOut) {
+          put({ t: "ins", x: mx, y: r.yO, ins: insT, out: true });
+          if (r.twoOut) put({ t: "ins", x: mx + 1, y: r.yO, ins: insT, out: true });
+          put({ t: "pole", x: mx + 2, y: r.yO });
+        }
+      } else {
+        if (r.A.length) put({ t: "ins", x: mx, y: r.yI, ins: insT });
+        put({ t: "pole", x: mx + 1, y: r.yI });
+        if (!r.fluidOut) { put({ t: "ins", x: mx, y: r.yO, ins: insT, out: true }); put({ t: "pole", x: mx + 1, y: r.yO }); }
+      }
+    }
+    if (r.yA !== null) for (let x = jxA; x <= r.rowEnd; x++) belt(x, r.yA, "E", null, { n: r.A[0] && r.A[0].id, s: r.A[1] && r.A[1].id });
+    if (r.hasC) for (let x = r.jxC; x >= rowX0; x--) belt(x, r.yC, "W", null, { n: r.C[0].id, s: r.C[1] && r.C[1].id });
+    if (!r.fluidOut) {
+      const c = colOf.get(r.id);
+      for (let x = r.rowEnd; x > c.x; x--) belt(x, r.yB, "W", r.id);
+      if (r.part === 0) belt(c.x, r.yB, "S", r.id);
+    }
+    for (const p of r.pipes) for (let x = rowX0 - 1; x <= r.rowEnd; x++) put({ t: "pipe", x, y: p.y, item: p.item, pdir: p.dir });
+  }
+
+  for (const c of cols) {
+    const last = c.uses.length ? c.uses[c.uses.length - 1] : null;
+    const splitYs = new Set(c.uses.slice(0, -1).map(u => u - 1));
+    const from = c.raw ? 0 : c.start + 1;
+    const to = last !== null ? last - 1 : maxY;
+    c.end = last !== null ? last : maxY;
+    for (let yy = from; yy <= to; yy++) {
+      if (splitYs.has(yy)) put({ t: "splitter", x: c.x, y: yy, w: 2, h: 1, dir: "S", item: c.item });
+      else belt(c.x, yy, "S", c.item);
+    }
+    if (last !== null) belt(c.x, last, "E", c.item);
+  }
+
+  for (const r of rows) for (const L of r.lines) {
+    const c = colOf.get(L.item), yy = L.y, item = L.item;
+    belt(c.x + 1, yy, "E", item);
+    const tx = L.kind === "C-n" ? r.jxC : L.kind === "C-s" ? r.jxC + 1 : jxA;
+    const obs = [];
+    for (let x = c.x + 2; x < xb; x++) if (G.has(key(x, yy))) obs.push(x);
+    let x = c.x + 2;
+    if (obs.length) {
+      const f = obs[obs.length - 1] + 1;
+      let ent = x;
+      put({ t: "ug", x: ent, y: yy, dir: "E", io: "input", item });
+      for (let guard = 0; guard < 200; guard++) {
+        if (f - ent - 1 <= U) { put({ t: "ug", x: f, y: yy, dir: "E", io: "output", item }); pairs.push({ y: yy, a: ent, b: f }); break; }
+        let cand = null;
+        for (let cc = ent + 1 + U; cc > ent; cc--) if (cc % 3 === 1 && cc + 1 < f && !G.has(key(cc, yy)) && !G.has(key(cc + 1, yy))) { cand = cc; break; }
+        if (cand === null) { warn.push(`Couldn't route ${nm(item)} across the bus at row ${yy}.`); break; }
+        put({ t: "ug", x: cand, y: yy, dir: "E", io: "output", item }); pairs.push({ y: yy, a: ent, b: cand });
+        put({ t: "ug", x: cand + 1, y: yy, dir: "E", io: "input", item }); ent = cand + 1;
+      }
+      x = f + 1;
+    }
+    for (; x < tx; x++) belt(x, yy, "E", item);
+    if (L.kind === "A-n") belt(jxA, yy, "S", item);
+    else if (L.kind === "A-s") belt(jxA, yy, "N", item);
+    else if (L.kind === "C-n") { belt(r.jxC, yy, "S", item); belt(r.jxC, yy + 1, "S", item); }
+    else { for (let k = yy; k < r.yA; k++) belt(r.jxC + 1, k, "S", item); belt(r.jxC + 1, r.yA, "W", item); belt(r.jxC, r.yA, "N", item); }
+  }
+
+  let W = 0; for (const e of ents) W = Math.max(W, e.x + e.w);
+  const counts = { belt: 0, ug: 0, splitter: 0, ins: 0, long: 0, pole: 0, machine: 0, pipe: 0 };
+  for (const e of ents) { if (e.t === "ins" && e.long) counts.long++; else counts[e.t]++; }
+  return { ents, G, cols, rows, pairs, W, H: maxY + 1, xb, jxA, rowX0, warn, conflicts, counts, tier, insT };
+}
+
+const DIR16 = { N: 0, E: 4, S: 8, W: 12 };
+function blueprintObject(L, st) {
+  const out = []; let n = 1;
+  for (const e of L.ents) {
+    const pos = { x: e.x + e.w / 2, y: e.y + e.h / 2 };
+    if (e.t === "belt") out.push({ entity_number: n++, name: L.tier.belt, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ug") out.push({ entity_number: n++, name: L.tier.ug, position: pos, direction: DIR16[e.dir], type: e.io });
+    else if (e.t === "splitter") out.push({ entity_number: n++, name: L.tier.sp, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ins") out.push({ entity_number: n++, name: e.ins.ent, position: pos, direction: 0 }); // picks up from the north
+    else if (e.t === "pole") out.push({ entity_number: n++, name: "small-electric-pole", position: pos });
+    else if (e.t === "machine") { const o = { entity_number: n++, name: e.ent, position: pos }; if (e.recipe) o.recipe = e.recipe; out.push(o); }
+  }
+  return { blueprint: { icons: [{ signal: { type: "item", name: st.item }, index: 1 }], entities: out, item: "blueprint", label: `${nm(st.item).split(" (")[0]} line`, version: 562949953421312 } };
+}
+</script>
+
+<script>
+// ---------- state ----------
+const state = { item: "logistic-science-pack", amount: 8, mode: "buildings", asm: "0.75", furn: "steel", belt: "15", ins: "fast", unit: "60", imports: [], maxRow: 12, tab: "layout" };
+try { Object.assign(state, JSON.parse(localStorage.getItem("fcp2-state") || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem("fcp2-state", JSON.stringify(state)); } catch (e) {} };
+const SWATCH = { raw: "--sw-raw", plate: "--sw-plate", mid: "--sw-mid", part: "--sw-part", red: "--sw-red", green: "--sw-green", mil: "--sw-mil", blue: "--sw-blue", purple: "--sw-purple", yellow: "--sw-yellow", fluid: "--sw-fluid" };
+const PICKABLE = [
+  "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack", "production-science-pack", "utility-science-pack",
+  "iron-gear-wheel", "copper-cable", "electronic-circuit", "advanced-circuit", "processing-unit", "plastic-bar", "sulfur", "sulfuric-acid", "lubricant",
+  "engine-unit", "electric-engine-unit", "battery", "flying-robot-frame", "low-density-structure",
+  "inserter", "transport-belt", "firearm-magazine", "piercing-rounds-magazine", "grenade", "stone-wall", "rail", "electric-furnace", "productivity-module", "pipe", "iron-stick",
+  "iron-plate", "copper-plate", "stone-brick", "steel-plate",
+];
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 1) => { if (!isFinite(n)) return "–"; const v = Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(d); return v.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1"); };
+const rateStr = r => fmt(r * Number(state.unit), state.unit === "1" ? 2 : 1);
+const unitLbl = () => state.unit === "60" ? "/min" : "/s";
+const sw = id => { const c = ITEMS[id] ? ITEMS[id][1] : "raw"; return `<span class="sw" style="background:var(${SWATCH[c]})"></span>`; };
+const checkTag = id => RECIPES[id] && RECIPES[id].check ? ` <span class="tag" title="Compare with the in-game recipe">check</span>` : "";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// distinct colour per item for belts and flow lines
+const ITEM_IDS = Object.keys(ITEMS);
+const itemHue = id => { const i = ITEM_IDS.indexOf(id); return i < 0 ? 0 : (i * 137.508 + 20) % 360; };
+let ITEM_L = "62%";
+const refreshItemL = () => { ITEM_L = getVar("--item-l") || "62%"; };
+const itemColor = id => `hsl(${itemHue(id).toFixed(0)} 62% ${ITEM_L})`;
+function getVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+let SOL = null, LAY = null;
+
+// ---------- render ----------
+function render() {
+  refreshItemL();
+  SOL = solve(state);
+  LAY = planLayout(SOL, state);
+  const { tree, build, inputs, warnings } = SOL;
+  const out = tree.rate;
+  $("th-rate").textContent = unitLbl(); $("th-rate2").textContent = unitLbl();
+  $("equiv").textContent = state.mode === "buildings"
+    ? `= ${rateStr(out)} ${nm(state.item).split(" (")[0]}${unitLbl()}`
+    : `= ${fmt(tree.count, 2)} buildings of ${nm(state.item).split(" (")[0]}`;
+
+  const allWarn = [...warnings, ...LAY.warn];
+  if (LAY.conflicts) allWarn.push(`${LAY.conflicts} tiles overlap in the generated layout. Please report this combination.`);
+  $("warnings").innerHTML = [...new Set(allWarn)].map(w => `<div class="warnbox">${esc(w)}</div>`).join("");
+
+  $("s-out").innerHTML = `${rateStr(out)}<small>${unitLbl()}</small>`;
+  $("s-bld").innerHTML = `${build.reduce((s, b) => s + b.count, 0)}<small>machines</small>`;
+  $("s-foot").innerHTML = build.length ? `${LAY.W}×${LAY.H}<small>tiles</small>` : "–";
+  $("s-belts").innerHTML = build.length ? `${LAY.counts.belt + LAY.counts.ug + LAY.counts.splitter}<small>${LAY.counts.ug} underground · ${LAY.counts.splitter} splitters</small>` : "–";
+
+  renderNumbers();
+  renderRowList();
+  renderLegend();
+  renderFlow();
+  $("bpbox").hidden = true;
+  view.fitted = false;
+  draw();
+  syncControls();
+  save();
+}
+
+function importBtn(id) {
+  if (id === state.item || !RECIPES[id]) return "";
+  const on = state.imports.includes(id);
+  return `<button type="button" class="pill${on ? " on" : ""}" data-imp="${id}" aria-pressed="${on}">${on ? "Imported" : "Import"}</button>`;
+}
+function renderNumbers() {
+  const { build, inputs } = SOL;
+  $("build").innerHTML = build.map(b => `<tr>
+      <td><span class="item">${sw(b.id)}${nm(b.id)}${checkTag(b.id)}</span></td>
+      <td class="num">${rateStr(b.rate)}</td>
+      <td class="mach">${b.machine.name}</td>
+      <td class="big"><span class="exact">${fmt(b.exact, 2)}</span>${b.count}</td>
+      <td>${importBtn(b.id)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">Nothing to build at this target.</td></tr>`;
+  const beltPerSec = Number(state.belt);
+  const inRows = [...inputs.entries()].sort((a, b) => (a[1].imported === b[1].imported ? b[1].rate - a[1].rate : a[1].imported ? -1 : 1));
+  $("inputs").innerHTML = inRows.map(([id, v]) => {
+    const fluid = isFluid(id);
+    return `<tr>
+      <td><span class="item">${sw(id)}${nm(id)}${v.fuel ? ` <span class="sub">incl. ${rateStr(v.fuel)} fuel</span>` : ""}</span></td>
+      <td class="num">${rateStr(v.rate)}</td>
+      <td class="num">${fluid ? "pipe" : fmt(v.rate / (beltPerSec / 2), 2)}</td>
+      <td class="num">${fluid ? "–" : fmt(v.rate / beltPerSec, 2)}</td>
+      <td>${v.imported ? importBtn(id) : ""}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">No inputs.</td></tr>`;
+}
+
+function laneHtml(list, label) {
+  if (!list.length) return "";
+  return `<span class="lane">${label}: ${list.map(s => `<span class="dot" style="background:${itemColor(s.id)}"></span>${esc(nm(s.id))}`).join(" + ")}</span>`;
+}
+function renderRowList() {
+  if (!LAY.rows.length) { $("rowlist").innerHTML = `<p class="empty">Nothing to lay out at this target.</p>`; return; }
+  $("rowlist").innerHTML = LAY.rows.map((r, i) => `
+    <button type="button" class="rowcard" data-row="${i}">
+      <span class="t">${sw(r.id)}${esc(nm(r.id))}${r.parts > 1 ? ` <span class="sub">part ${r.part + 1}/${r.parts}</span>` : ""}</span>
+      <span class="m">${r.n}× ${esc(r.mname)} · ${rateStr(r.outPer * r.n)}${unitLbl()}</span>
+      ${laneHtml(r.A, "Belt")}
+      ${laneHtml(r.C, "Far belt")}
+      ${r.fluids.length || r.fluidOut ? `<span class="lane">Pipe: ${[...r.fluids.map(f => nm(f.id)), ...(r.fluidOut ? [nm(r.id) + " out"] : [])].map(esc).join(", ")}</span>` : ""}
+      ${r.rowWarn.map(w => `<span class="w">${esc(w)}</span>`).join("")}
+    </button>`).join("");
+}
+function renderLegend() {
+  const t = LAY.tier, it = LAY.insT;
+  $("legend").innerHTML = [
+    `<span><i class="lg" style="background:var(${t.tok})"></i>${t.name}</span>`,
+    `<span><i class="lg" style="background:var(${t.tok});opacity:.55;outline:2px solid var(${t.tok})"></i>Underground pair</span>`,
+    `<span><i class="lg" style="background:var(--machine);border-color:var(--machine-line)"></i>Machine</span>`,
+    `<span><i class="lg" style="background:var(${it.tok})"></i>${it.name}</span>`,
+    `<span><i class="lg" style="background:var(--ins-long)"></i>Long-handed inserter</span>`,
+    `<span><i class="lg" style="background:var(--pole);border-radius:50%"></i>Small pole</span>`,
+    `<span><i class="lg" style="background:var(--pipe)"></i>Pipe guide</span>`,
+  ].join("");
+}
+
+// ---------- canvas ----------
+const TS = 20;
+const view = { z: 1, x: 0, y: 0, fitted: false };
+const PAD_TOP = 7, PAD_RIGHT = 16;
+let COL = {};
+function readColors() {
+  COL = {};
+  for (const n of ["--canvas", "--grid", "--machine", "--machine-line", "--fg", "--muted", "--pole", "--pipe", "--accent", "--warn", "--ins-long", LAY.tier.tok, LAY.insT.tok]) COL[n] = getVar(n);
+}
+function fitView() {
+  const vp = $("vp"), w = vp.clientWidth, h = vp.clientHeight;
+  const ww = (LAY.W + PAD_RIGHT + 1) * TS, wh = (LAY.H + PAD_TOP + 1) * TS;
+  view.z = Math.max(0.15, Math.min(2, Math.min(w / ww, h / wh)));
+  view.x = (w - ww * view.z) / 2 + TS * view.z * 0.5;
+  view.y = (h - wh * view.z) / 2 + PAD_TOP * TS * view.z;
+  view.fitted = true;
+}
+function chevron(ctx, cx, cy, dir, s, color) {
+  const a = { N: -Math.PI / 2, E: 0, S: Math.PI / 2, W: Math.PI }[dir];
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+  ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.6); ctx.lineTo(s * 0.35, 0); ctx.lineTo(-s * 0.45, s * 0.6);
+  ctx.strokeStyle = color; ctx.lineWidth = s * 0.38; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+}
+function draw() {
+  const cv = $("cv"), vp = $("vp");
+  if (!cv || vp.offsetParent === null) return;
+  const dpr = window.devicePixelRatio || 1, w = vp.clientWidth, h = vp.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  readColors();
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COL["--canvas"]; ctx.fillRect(0, 0, w, h);
+  if (!LAY || !LAY.ents.length) {
+    ctx.fillStyle = COL["--muted"]; ctx.font = "500 14px " + getVar("--body"); ctx.textAlign = "center";
+    ctx.fillText("Set a target above to generate a layout.", w / 2, h / 2); return;
+  }
+  if (!view.fitted) fitView();
+  ctx.setTransform(dpr * view.z, 0, 0, dpr * view.z, dpr * view.x, dpr * view.y);
+  const z = view.z, beltC = COL[LAY.tier.tok], T = TS;
+
+  // grid
+  if (z * T >= 9) {
+    ctx.fillStyle = COL["--grid"];
+    for (let x = 0; x <= LAY.W; x++) for (let y = 0; y <= LAY.H; y++) ctx.fillRect(x * T - 1, y * T - 1, 2, 2);
+  }
+  // column headers
+  ctx.save();
+  ctx.font = `600 ${Math.max(9, 11)}px ${getVar("--body")}`;
+  for (const c of LAY.cols) {
+    ctx.save(); ctx.translate(c.x * T + T * 0.62, -T * 0.4); ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = itemColor(c.item); ctx.fillText(nm(c.item).split(" (")[0], 0, 0); ctx.restore();
+    if (!c.raw) { // dotted guide from header down to where the column starts
+      ctx.strokeStyle = COL["--grid"]; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(c.x * T + T / 2, 0); ctx.lineTo(c.x * T + T / 2, c.start * T); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+  // underground links
+  ctx.strokeStyle = beltC; ctx.globalAlpha = 0.55; ctx.setLineDash([3, 3]); ctx.lineWidth = 2;
+  for (const p of LAY.pairs) { ctx.beginPath(); ctx.moveTo((p.a + 1) * T, (p.y + 0.5) * T); ctx.lineTo(p.b * T, (p.y + 0.5) * T); ctx.stroke(); }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  for (const e of LAY.ents) {
+    const x = e.x * T, y = e.y * T;
+    if (e.t === "belt") {
+      ctx.globalAlpha = 0.32; ctx.fillStyle = beltC; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); ctx.globalAlpha = 1;
+      if (e.lanes) {
+        const o = T * 0.24;
+        if (e.lanes.n) chevron(ctx, x + T / 2, y + T / 2 - o, e.dir, T * 0.3, itemColor(e.lanes.n));
+        if (e.lanes.s) chevron(ctx, x + T / 2, y + T / 2 + o, e.dir, T * 0.3, itemColor(e.lanes.s));
+      } else chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.42, itemColor(e.item));
+    } else if (e.t === "ug") {
+      ctx.fillStyle = beltC; ctx.fillRect(x + 2, y + 3, T - 4, T - 6);
+      ctx.fillStyle = COL["--canvas"];
+      if (e.io === "input") ctx.fillRect(x + T - 6, y + 6, 3, T - 12); else ctx.fillRect(x + 3, y + 6, 3, T - 12);
+      chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.3, itemColor(e.item));
+    } else if (e.t === "splitter") {
+      ctx.fillStyle = beltC; ctx.globalAlpha = 0.75; ctx.fillRect(x + 1, y + 4, 2 * T - 2, T - 8); ctx.globalAlpha = 1;
+      chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.36, itemColor(e.item));
+      chevron(ctx, x + T * 1.5, y + T / 2, e.dir, T * 0.36, COL["--canvas"]);
+    } else if (e.t === "machine") {
+      ctx.fillStyle = COL["--machine"]; ctx.fillRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+      ctx.strokeStyle = COL["--machine-line"]; ctx.lineWidth = 1.5; ctx.strokeRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+      ctx.fillStyle = itemColor(e.item); ctx.beginPath(); ctx.arc(x + e.w * T / 2, y + e.h * T / 2 - (e.w === 3 ? 5 : 0), e.w === 3 ? 8 : 6, 0, Math.PI * 2); ctx.fill();
+      if (e.w === 3 && z * T >= 12) {
+        ctx.fillStyle = COL["--muted"]; ctx.font = `600 9px ${getVar("--mono")}`; ctx.textAlign = "center";
+        ctx.fillText(e.ent.replace("assembling-machine-", "AM").replace("chemical-plant", "CHEM").replace("electric-furnace", "E-FURN"), x + e.w * T / 2, y + e.h * T - 8); ctx.textAlign = "left";
+      }
+    } else if (e.t === "ins") {
+      const c = COL[e.ins.tok] || COL["--ins-long"];
+      ctx.fillStyle = c; ctx.fillRect(x + T * 0.3, y + T * 0.3, T * 0.4, T * 0.4);
+      ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.beginPath();
+      const reach = e.long ? T * 0.5 : T * 0.4;
+      ctx.moveTo(x + T / 2, y + T / 2 - reach); ctx.lineTo(x + T / 2, y + T / 2 + reach); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + T / 2 - 4, y + T / 2 + reach - 4); ctx.lineTo(x + T / 2, y + T / 2 + reach); ctx.lineTo(x + T / 2 + 4, y + T / 2 + reach - 4); ctx.stroke();
+    } else if (e.t === "pole") {
+      ctx.fillStyle = COL["--pole"]; ctx.beginPath(); ctx.arc(x + T / 2, y + T / 2, T * 0.2, 0, Math.PI * 2); ctx.fill();
+    } else if (e.t === "pipe") {
+      ctx.fillStyle = COL["--pipe"]; ctx.globalAlpha = 0.7; ctx.fillRect(x, y + T * 0.36, T, T * 0.28); ctx.globalAlpha = 1;
+      ctx.fillStyle = itemColor(e.item); ctx.fillRect(x + T * 0.42, y + T * 0.36, T * 0.16, T * 0.28);
+    }
+  }
+  // row labels
+  ctx.textAlign = "left";
+  for (const r of LAY.rows) {
+    const lx = (r.hasC ? r.jxC + 3 : r.rowEnd + 2) * T, ly = (r.yM + r.w / 2) * T;
+    ctx.fillStyle = COL["--fg"]; ctx.font = `600 13px ${getVar("--body")}`;
+    ctx.fillText(`${nm(r.id).split(" (")[0]}${r.parts > 1 ? ` (${r.part + 1}/${r.parts})` : ""}`, lx, ly - 2);
+    ctx.fillStyle = COL["--muted"]; ctx.font = `500 11px ${getVar("--mono")}`;
+    ctx.fillText(`${r.n}× · ${rateStr(r.outPer * r.n)}${unitLbl()}`, lx, ly + 12);
+    if (r.rowWarn.length) { ctx.fillStyle = COL["--warn"]; ctx.fillText("check inserters", lx, ly + 25); }
+    for (const p of r.pipes) { ctx.fillStyle = COL["--pipe"]; ctx.font = `500 10px ${getVar("--body")}`; ctx.textAlign = "right"; ctx.fillText(`${nm(p.item)} ${p.dir === "in" ? "in" : "out"}`, (LAY.rowX0 - 1.2) * T, (p.y + 0.72) * T); ctx.textAlign = "left"; }
+  }
+  // final output label
+  const fc = LAY.cols.find(c => c.item === state.item);
+  if (fc) { ctx.fillStyle = COL["--accent"]; ctx.font = `700 12px ${getVar("--body")}`; ctx.fillText(`↓ ${nm(state.item).split(" (")[0]} out`, fc.x * T - 4, (LAY.H + 0.6) * T); }
+}
+
+function tileAt(px, py) { return { x: Math.floor((px - view.x) / view.z / TS), y: Math.floor((py - view.y) / view.z / TS) }; }
+function describe(e) {
+  const t = LAY.tier;
+  if (e.t === "belt") return e.lanes ? `${t.name} · ${[e.lanes.n, e.lanes.s].filter(Boolean).map(nm).join(" | ")}` : `${t.name} · ${nm(e.item)}`;
+  if (e.t === "ug") return `Underground belt (${e.io === "input" ? "entrance" : "exit"}) · ${nm(e.item)}`;
+  if (e.t === "splitter") return `Splitter · ${nm(e.item)}`;
+  if (e.t === "machine") return `${e.mname} · ${nm(e.item)}`;
+  if (e.t === "ins") return `${e.ins.name} · ${e.out ? "output" : "input"}`;
+  if (e.t === "pole") return "Small electric pole";
+  if (e.t === "pipe") return `Pipe guide · ${nm(e.item)} (not in blueprint)`;
+  return "";
+}
+(function wireCanvas() {
+  const cv = $("cv"), tip = $("tip");
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; cv.setPointerCapture(e.pointerId); cv.classList.add("drag"); tip.hidden = true; });
+  cv.addEventListener("pointermove", e => {
+    const r = cv.getBoundingClientRect();
+    if (drag) { view.x = drag.vx + e.clientX - drag.x; view.y = drag.vy + e.clientY - drag.y; draw(); return; }
+    if (!LAY) return;
+    const t = tileAt(e.clientX - r.left, e.clientY - r.top);
+    const ent = LAY.G.get(t.x + "," + t.y);
+    if (!ent) { tip.hidden = true; return; }
+    tip.textContent = describe(ent); tip.hidden = false;
+    const px = e.clientX - r.left + 14, py = e.clientY - r.top + 14;
+    tip.style.left = Math.min(px, r.width - tip.offsetWidth - 6) + "px"; tip.style.top = Math.min(py, r.height - tip.offsetHeight - 6) + "px";
+  });
+  const end = () => { drag = null; cv.classList.remove("drag"); };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  cv.addEventListener("pointerleave", () => { tip.hidden = true; });
+  cv.addEventListener("wheel", e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const r = cv.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.0025), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+})();
+function zoomAt(f, px, py) {
+  const nz = Math.max(0.12, Math.min(4, view.z * f)); const k = nz / view.z;
+  view.x = px - (px - view.x) * k; view.y = py - (py - view.y) * k; view.z = nz; draw();
+}
+$("z-in").addEventListener("click", () => zoomAt(1.3, $("vp").clientWidth / 2, $("vp").clientHeight / 2));
+$("z-out").addEventListener("click", () => zoomAt(1 / 1.3, $("vp").clientWidth / 2, $("vp").clientHeight / 2));
+$("z-fit").addEventListener("click", () => { fitView(); draw(); });
+$("rowlist").addEventListener("click", e => {
+  const b = e.target.closest("[data-row]"); if (!b) return;
+  const r = LAY.rows[Number(b.dataset.row)], vp = $("vp");
+  view.z = Math.max(view.z, 0.9);
+  const cx = ((LAY.xb + r.rowEnd) / 2) * TS, cy = ((r.T + r.bottom) / 2) * TS;
+  view.x = vp.clientWidth / 2 - cx * view.z; view.y = vp.clientHeight / 2 - cy * view.z; draw();
+});
+window.addEventListener("resize", () => { view.fitted = false; draw(); });
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { refreshItemL(); renderRowList(); renderLegend(); renderFlow(); draw(); }); } catch (e) {}
+new MutationObserver(() => { refreshItemL(); renderRowList(); renderFlow(); draw(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---------- blueprint ----------
+async function encodeBlueprint(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate"));
+  const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return "0" + btoa(bin);
+}
+$("bp-copy").addEventListener("click", async () => {
+  const box = $("bpbox"), ta = $("bptext"), note = $("bpnote");
+  if (!LAY || !LAY.ents.length) return;
+  if (typeof CompressionStream === "undefined") { box.hidden = false; ta.value = ""; note.textContent = "This browser can't compress blueprint strings. Try a current Chrome, Edge, Firefox or Safari."; return; }
+  const str = await encodeBlueprint(blueprintObject(LAY, state));
+  box.hidden = false; ta.value = str;
+  const pipes = LAY.counts.pipe ? " Pipes are not included; place them by hand." : "";
+  try { await navigator.clipboard.writeText(str); note.textContent = "Copied to clipboard." + pipes; }
+  catch (e) { ta.focus(); ta.select(); note.textContent = "Select the text above and copy it." + pipes; }
+});
+
+// ---------- flow chart ----------
+function renderFlow() {
+  const host = $("flow");
+  if (!SOL || !SOL.build.length) { host.innerHTML = `<p class="empty" style="padding:14px">Nothing to chart at this target.</p>`; return; }
+  const nodes = new Map();
+  for (const b of SOL.build) nodes.set(b.id, { id: b.id, d: b.depth, b });
+  const agg = new Map();
+  for (const e of SOL.edges) { const k = e.from + ">" + e.to; const cur = agg.get(k) || { from: e.from, to: e.to, rate: 0, fuel: e.fuel }; cur.rate += e.rate; agg.set(k, cur); }
+  const edges = [...agg.values()].filter(e => nodes.has(e.to));
+  for (const e of edges) if (!nodes.has(e.from)) nodes.set(e.from, { id: e.from, d: 0, input: true });
+  for (const n of nodes.values()) if (n.input) n.d = Math.max(...edges.filter(e => e.from === n.id).map(e => nodes.get(e.to).d)) + 1;
+  const maxD = Math.max(...[...nodes.values()].map(n => n.d));
+  const layers = []; for (let i = 0; i <= maxD; i++) layers.push([]);
+  for (const n of nodes.values()) { n.L = maxD - n.d; layers[n.L].push(n); }
+  layers.forEach(l => l.sort((a, b) => (a.id < b.id ? -1 : 1)));
+  layers.forEach((l, i) => l.forEach((n, j) => n.i = j));
+  for (let pass = 0; pass < 3; pass++) for (let li = 1; li < layers.length; li++) {
+    for (const n of layers[li]) { const src = edges.filter(e => e.to === n.id).map(e => nodes.get(e.from)); n.bc = src.length ? src.reduce((s, m) => s + m.i / Math.max(1, layers[m.L].length), 0) / src.length : n.i / layers[li].length; }
+    layers[li].sort((a, b) => a.bc - b.bc); layers[li].forEach((n, j) => n.i = j);
+  }
+  const NW = 178, NH = 52, GX = 86, GY = 18, P = 18;
+  const maxN = Math.max(...layers.map(l => l.length));
+  const H = maxN * (NH + GY) - GY + P * 2, W = layers.length * (NW + GX) - GX + P * 2;
+  for (const l of layers) { const off = (H - P * 2 - (l.length * (NH + GY) - GY)) / 2; l.forEach((n, j) => { n.x = P + n.L * (NW + GX); n.y = P + off + j * (NH + GY); }); }
+  const maxRate = Math.max(...edges.map(e => e.rate));
+  for (const n of nodes.values()) { n.outs = edges.filter(e => e.from === n.id).sort((a, b) => nodes.get(a.to).y - nodes.get(b.to).y); n.ins = edges.filter(e => e.to === n.id).sort((a, b) => nodes.get(a.from).y - nodes.get(b.from).y); }
+  const paths = [], labels = [];
+  for (const e of edges) {
+    const a = nodes.get(e.from), b = nodes.get(e.to);
+    const y1 = a.y + NH * (a.outs.indexOf(e) + 1) / (a.outs.length + 1), y2 = b.y + NH * (b.ins.indexOf(e) + 1) / (b.ins.length + 1);
+    const x1 = a.x + NW, x2 = b.x, mx = (x1 + x2) / 2;
+    const sw2 = 1.5 + 6 * Math.sqrt(e.rate / maxRate);
+    paths.push(`<path d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" fill="none" stroke="${itemColor(e.from)}" stroke-width="${sw2.toFixed(1)}" stroke-opacity=".75"${e.fuel ? ' stroke-dasharray="5 4"' : ""}><title>${esc(nm(e.from))} → ${esc(nm(e.to))}: ${rateStr(e.rate)}${unitLbl()}${e.fuel ? " (fuel)" : ""}</title></path>`);
+    labels.push(`<text x="${x2 - 6}" y="${y2 - 4}" text-anchor="end" class="fl-r">${rateStr(e.rate)}</text>`);
+  }
+  const boxes = [...nodes.values()].map(n => {
+    const v = SOL.inputs.get(n.id);
+    const sub = n.b ? `${n.b.count}× ${n.b.machine.name.replace("Assembling machine ", "AM").replace("Chemical plant", "Chem plant")}` : (v && v.imported ? "imported" : "raw input");
+    const rate = n.b ? n.b.rate : (v ? v.rate : 0);
+    const final = n.id === state.item;
+    return `<g><rect x="${n.x}" y="${n.y}" width="${NW}" height="${NH}" class="fl-box${final ? " fl-final" : ""}${n.input ? " fl-in" : ""}"/>
+      <rect x="${n.x}" y="${n.y}" width="5" height="${NH}" fill="${itemColor(n.id)}"/>
+      <text x="${n.x + 13}" y="${n.y + 21}" class="fl-n">${esc(nm(n.id).split(" (")[0])}</text>
+      <text x="${n.x + 13}" y="${n.y + 39}" class="fl-s">${esc(sub)} · ${rateStr(rate)}${unitLbl()}</text></g>`;
+  }).join("");
+  host.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Production chain for ${esc(nm(state.item))}">
+    <style>.fl-box{fill:var(--panel);stroke:var(--line);stroke-width:1}.fl-final{stroke:var(--accent);stroke-width:2}.fl-in{fill:var(--panel-2)}
+    .fl-n{fill:var(--fg);font:600 13px var(--body)}.fl-s{fill:var(--muted);font:500 11px var(--mono)}.fl-r{fill:var(--muted);font:500 10px var(--mono);paint-order:stroke;stroke:var(--canvas);stroke-width:3px}</style>
+    ${paths.join("")}${boxes}${labels.join("")}</svg>`;
+}
+
+// ---------- controls ----------
+function syncControls() {
+  $("item").value = state.item; $("amount").value = state.amount; $("asm").value = state.asm; $("furn").value = state.furn;
+  $("belt").value = state.belt; $("ins").value = state.ins; $("unit").value = state.unit; $("maxrow").value = state.maxRow;
+  $("mode-buildings").setAttribute("aria-pressed", state.mode === "buildings");
+  $("mode-rate").setAttribute("aria-pressed", state.mode === "rate");
+}
+function showTab(t) {
+  state.tab = t;
+  for (const n of ["layout", "flow", "numbers"]) { $("tab-" + n).setAttribute("aria-selected", n === t); $("view-" + n).hidden = n !== t; }
+  save();
+  if (t === "layout") { view.fitted = false; draw(); }
+}
+const groups = [["Science packs", c => /science/.test(c)], ["Intermediates", c => !/science|plate|brick/.test(c)], ["Plates", c => /plate|brick/.test(c)]];
+$("item").innerHTML = groups.map(([g, f]) => `<optgroup label="${g}">${PICKABLE.filter(f).map(id => `<option value="${id}">${nm(id)}</option>`).join("")}</optgroup>`).join("");
+if (!RECIPES[state.item]) state.item = "logistic-science-pack";
+if (!INSERTERS[state.ins]) state.ins = "fast";
+$("item").addEventListener("change", e => { state.item = e.target.value; render(); });
+$("amount").addEventListener("input", e => { state.amount = e.target.value; render(); });
+for (const k of ["asm", "furn", "belt", "ins", "unit"]) $(k).addEventListener("change", e => { state[k] = e.target.value; render(); });
+$("maxrow").addEventListener("change", e => { state.maxRow = Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 12))); render(); });
+$("mode-buildings").addEventListener("click", () => { state.mode = "buildings"; render(); });
+$("mode-rate").addEventListener("click", () => { state.mode = "rate"; render(); });
+for (const n of ["layout", "flow", "numbers"]) $("tab-" + n).addEventListener("click", () => showTab(n));
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-imp]"); if (!b) return;
+  const id = b.dataset.imp;
+  state.imports = state.imports.includes(id) ? state.imports.filter(x => x !== id) : [...state.imports, id];
+  render();
+});
+const hashTab = (location.hash || "").slice(1);
+render();
+showTab(["layout", "flow", "numbers"].includes(hashTab) ? hashTab : (state.tab || "layout"));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
+</script>
+
+</body></html>
