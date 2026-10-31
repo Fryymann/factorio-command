@@ -1,0 +1,2173 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Factorio Chain Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: control strip on top, then summary row, then build list + raw inputs side by side, full chain tree below. Dark-first steel with amber signal colour. */
+:root {
+  --bg: #15171a;
+  --panel: #1d2024;
+  --panel-2: #24282d;
+  --line: #343a41;
+  --fg: #e7e3d9;
+  --muted: #959891;
+  --accent: #e2a23a;
+  --accent-ink: #1a1408;
+  --warn: #e0703a;
+  --ok: #7fb069;
+  --import: #6fa8dc;
+  --sw-raw: #7d7a74; --sw-plate: #a9b1b8; --sw-mid: #c49a5a; --sw-part: #8f8a7e;
+  --sw-red: #d9473d; --sw-green: #5fb84a; --sw-mil: #7f8487; --sw-blue: #3f8fd9; --sw-purple: #9a57c9; --sw-yellow: #e2c33a; --sw-fluid: #4a7f9c;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --canvas: #111315; --grid: #22262b; --machine: #2b3036; --machine-line: #4a525b;
+  --belt-1: #c9a227; --belt-2: #c8483d; --belt-3: #3f86cf; --belt-4: #4fae73;
+  --ins-basic: #d8b23c; --ins-fast: #4b93dc; --ins-bulk: #62b85f; --ins-long: #cf5a45;
+  --pole: #9a7448; --pipe: #6f93a8; --item-l: 62%;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eceeef; --panel: #ffffff; --panel-2: #f4f5f6; --line: #d3d7db;
+    --fg: #1b1e21; --muted: #5f6468; --accent: #a8670c; --accent-ink: #ffffff;
+    --warn: #b9471a; --ok: #3f7d2a; --import: #2c6aa3;
+    --canvas: #e3e6e8; --grid: #d2d6da; --machine: #f7f8f9; --machine-line: #8f979e;
+    --belt-1: #b38a10; --belt-2: #b23a30; --belt-3: #2c6fb5; --belt-4: #2f8a52;
+    --ins-basic: #a9840f; --ins-fast: #2b6fb8; --ins-bulk: #3c8a39; --ins-long: #b0402d;
+    --pole: #7a5530; --pipe: #4f7488; --item-l: 42%;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eceeef; --panel: #ffffff; --panel-2: #f4f5f6; --line: #d3d7db;
+  --fg: #1b1e21; --muted: #5f6468; --accent: #a8670c; --accent-ink: #ffffff;
+  --warn: #b9471a; --ok: #3f7d2a; --import: #2c6aa3;
+    --canvas: #e3e6e8; --grid: #d2d6da; --machine: #f7f8f9; --machine-line: #8f979e;
+    --belt-1: #b38a10; --belt-2: #b23a30; --belt-3: #2c6fb5; --belt-4: #2f8a52;
+    --ins-basic: #a9840f; --ins-fast: #2b6fb8; --ins-bulk: #3c8a39; --ins-long: #b0402d;
+    --pole: #7a5530; --pipe: #4f7488; --item-l: 42%;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 3px solid var(--accent); padding-bottom: 10px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 10px; color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 14px; min-width: 0; }
+
+/* controls */
+.controls { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(240px, 2fr) repeat(4, minmax(120px, 1fr)); gap: 12px; align-items: end; }
+@media (max-width: 1000px) { .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .controls { grid-template-columns: minmax(0, 1fr); } }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field > label, .field > .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+select, input[type=number] { width: 100%; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); padding: 8px 9px; font: 500 14px var(--body); border-radius: 0; }
+input[type=number] { font-family: var(--mono); }
+select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.target-row { display: flex; gap: 0; }
+.target-row input { flex: 1 1 auto; min-width: 0; }
+.seg { display: flex; border: 1px solid var(--line); }
+.seg button { background: var(--panel-2); color: var(--muted); border: 0; padding: 8px 10px; font: 600 12px var(--body); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.equiv { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* summary */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; min-width: 0; }
+.stat .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stat .v { font-family: var(--display); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .v small { font-family: var(--body); font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.stat.primary { border-color: var(--accent); }
+
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* tables */
+.tscroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--mono); }
+td.big { font-family: var(--mono); font-weight: 600; font-size: 15px; text-align: right; }
+td .exact { color: var(--muted); font-weight: 400; font-size: 12px; margin-right: 6px; }
+tr:last-child td { border-bottom: 0; }
+.item { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 12px; height: 12px; flex: 0 0 12px; border: 1px solid rgba(0,0,0,.35); }
+.mach { color: var(--muted); font-size: 13px; }
+.util { display: inline-block; width: 46px; height: 6px; background: var(--panel-2); border: 1px solid var(--line); vertical-align: middle; margin-left: 6px; position: relative; }
+.util > i { position: absolute; inset: 0 auto 0 0; background: var(--ok); }
+.util.full > i { background: var(--accent); }
+.pill { font: 600 10.5px var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.pill:hover { border-color: var(--import); color: var(--import); }
+.pill.on { background: var(--import); border-color: var(--import); color: var(--bg); }
+.tag { font: 600 10px var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 2px 5px; border: 1px solid var(--warn); color: var(--warn); }
+.tag.imp { border-color: var(--import); color: var(--import); }
+.empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+/* tree */
+.tree { font-variant-numeric: tabular-nums; }
+.node { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.node .left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.node .right { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--muted); white-space: nowrap; }
+.node .right b { color: var(--fg); font-weight: 600; }
+.indent { display: inline-block; flex: 0 0 auto; }
+.twig { color: var(--line); font-family: var(--mono); }
+.node.leaf .name { color: var(--muted); }
+.toggle { background: none; border: 0; color: var(--muted); cursor: pointer; font: 600 13px var(--mono); width: 18px; padding: 0; }
+.notes { color: var(--muted); font-size: 12.5px; max-width: 75ch; display: grid; gap: 6px; }
+.notes p { margin: 0; }
+.warnbox { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--panel); color: var(--fg); font-size: 13px; }
+/* tabs + shared buttons */
+.wrap.wide { max-width: 1640px; }
+.head-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tabs { display: flex; border: 1px solid var(--line); }
+.tabs button { background: var(--panel); color: var(--muted); border: 0; padding: 6px 14px; font: 600 15px var(--display); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.view { display: grid; gap: 18px; min-width: 0; }
+.btn { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); padding: 8px 12px; font: 600 12px var(--body); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; border-radius: 0; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.armed { background: var(--warn); border-color: var(--warn); color: var(--bg); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.small { padding: 5px 9px; font-size: 11px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head h2 { margin: 0; }
+input[type=text] { width: 100%; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); padding: 8px 9px; font: 500 14px var(--body); border-radius: 0; }
+
+/* planner */
+.pl-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.pl-bar .field { flex: 1 1 170px; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.pl-sep { width: 1px; align-self: stretch; background: var(--line); }
+.pl-main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .pl-main { grid-template-columns: minmax(0, 1fr); } .pl-sep { display: none; } }
+.pl-canvas { position: relative; height: clamp(420px, 72vh, 860px); overflow: hidden; background-color: var(--panel); border: 1px solid var(--line); background-image: radial-gradient(circle, var(--line) 1.1px, transparent 1.4px); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.pl-canvas.panning { cursor: grabbing; }
+.pl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+#pl-svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.edge .hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.edge .line { fill: none; stroke-width: 3; }
+.edge .line.fluid { stroke-dasharray: 9 5; }
+.edge .arrow { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.edge.sel .line, .edge.sel .arrow { stroke-width: 5; }
+.edge .lbl-bg { fill: var(--panel-2); stroke: var(--line); pointer-events: all; cursor: pointer; }
+.edge.sel .lbl-bg { stroke: var(--accent); stroke-width: 2; }
+.edge.bad .lbl-bg { stroke: var(--warn); }
+.edge .lbl { fill: var(--fg); font: 500 11px var(--mono); text-anchor: middle; pointer-events: none; }
+.edge.bad .lbl { fill: var(--warn); }
+.temp { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.bn { position: absolute; width: 224px; background: var(--panel-2); border: 1px solid var(--line); box-shadow: 0 2px 0 rgba(0,0,0,.22); font-size: 12px; }
+.bn.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.bn.bad { border-left: 3px solid var(--warn); }
+.bn-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 0 12px 0 12px; height: 38px; background: var(--bg); cursor: grab; border-bottom: 1px solid var(--line); }
+.bn-head .item { min-width: 0; gap: 7px; }
+.t { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.bn-head .t { font-weight: 600; font-size: 12.5px; }
+.bn-pct { font: 600 12px var(--mono); color: var(--ok); white-space: nowrap; }
+.bn.bad .bn-pct { color: var(--warn); }
+.bn-sub { padding: 6px 12px 0; color: var(--muted); font: 500 12px var(--mono); display: flex; justify-content: space-between; gap: 6px; }
+.bn-kind { font: 600 10px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--import); }
+.bn-sec { padding: 6px 12px 1px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.bn-row, .bn-out { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 12px; }
+.bn-row .item { min-width: 0; gap: 6px; }
+.bn-row .sw { width: 9px; height: 9px; flex-basis: 9px; }
+.v { font-family: var(--mono); white-space: nowrap; }
+.bn-row.short .v { color: var(--warn); font-weight: 600; }
+.bn-out { border-top: 1px solid var(--line); margin-top: 5px; padding: 6px 12px 8px; color: var(--muted); }
+.bn-out .v { color: var(--fg); }
+.port { position: absolute; top: 12px; width: 14px; height: 14px; border-radius: 50%; background: var(--panel); border: 2px solid var(--muted); }
+.port.in { left: -8px; }
+.port.out { right: -8px; border-color: var(--accent); background: var(--accent); cursor: crosshair; }
+.port.out::before { content: ""; position: absolute; inset: -9px; }
+.pl-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; border: 1px solid var(--line); background: var(--panel-2); }
+.pl-zoom button { background: none; border: 0; color: var(--fg); padding: 6px 11px; font: 600 13px var(--mono); cursor: pointer; }
+.pl-zoom button + button, .pl-zoom span + button { border-left: 1px solid var(--line); }
+.pl-zoom span { font: 500 12px var(--mono); color: var(--muted); padding: 6px 6px; min-width: 48px; text-align: center; align-self: center; }
+.pl-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; pointer-events: none; text-align: center; padding: 20px; }
+.pl-insp { display: grid; gap: 12px; align-content: start; }
+.pl-insp h3 { font-family: var(--display); font-weight: 600; font-size: 19px; margin: 0; display: flex; align-items: center; gap: 8px; }
+.pl-insp .field input, .pl-insp .field select { font-size: 13px; }
+.stats { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.kv > span:first-child { color: var(--muted); }
+.kv > span:last-child { font-family: var(--mono); text-align: right; }
+.kv.warn > span:last-child { color: var(--warn); font-weight: 600; }
+.suggest { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; background: var(--panel-2); padding: 8px 10px; border: 1px solid var(--line); }
+.help { font-size: 13px; color: var(--muted); display: grid; gap: 8px; }
+.help ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.help b { color: var(--fg); }
+.issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.issues button { text-align: left; width: 100%; background: var(--panel-2); border: 0; border-left: 3px solid var(--warn); padding: 7px 10px; color: var(--fg); font: 13px var(--body); cursor: pointer; }
+.issues button:hover { background: var(--bg); }
+.issues .clear { color: var(--ok); font-size: 13px; }
+.pl-totals { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.pl-totals b { color: var(--fg); font-family: var(--mono); font-weight: 600; }
+/* blueprint */
+.warns { display: grid; gap: 6px; }
+.lay-grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 12px; }
+@media (max-width: 960px) { .lay-grid { grid-template-columns: minmax(0, 1fr); } }
+.viewport { position: relative; height: clamp(400px, 70vh, 820px); border: 1px solid var(--line); background: var(--canvas); overflow: hidden; }
+.viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.viewport canvas.drag { cursor: grabbing; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); padding: 5px 8px; font: 500 12px var(--body); color: var(--fg); white-space: nowrap; z-index: 2; }
+.rowlist { display: grid; gap: 6px; align-content: start; max-height: clamp(400px, 70vh, 820px); overflow-y: auto; min-width: 0; }
+.rowcard { background: var(--panel-2); border: 1px solid var(--line); padding: 8px 10px; text-align: left; color: var(--fg); font: inherit; cursor: pointer; display: grid; gap: 3px; width: 100%; }
+.rowcard:hover { border-color: var(--accent); }
+.rowcard .rt { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.rowcard .m { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.rowcard .w { font-size: 12px; color: var(--warn); }
+.lane { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; display: inline-block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { width: 14px; height: 14px; display: inline-block; border: 1px solid var(--line); }
+.bpbox { margin-top: 12px; display: grid; gap: 6px; }
+.ed-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.ed-bar select { width: auto; padding: 6px 8px; font-size: 13px; }
+.ed-bar .seg { flex-wrap: wrap; }
+.ed-bar .btn { padding: 7px 10px; }
+.ed-hint { flex: 1 1 260px; font-size: 12px; }
+.ed-sec { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.ed-sec:last-child { border-bottom: 0; }
+.ed-sec h3 { margin: 0; font: 600 14px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ed-sec p { margin: 0; }
+.ed-sec.help { font-size: 12.5px; color: var(--muted); }
+.ed-check { text-align: left; background: var(--panel-2); border: 0; border-left: 3px solid var(--warn); padding: 6px 9px; color: var(--fg); font: 13px var(--body); cursor: pointer; }
+.ed-check:hover { background: var(--bg); }
+.rowlist .clear { color: var(--ok); font-size: 13px; }
+.bpbox textarea { width: 100%; height: 72px; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); font: 12px var(--mono); padding: 8px; resize: vertical; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Factorio Chain Planner</h1>
+    <div class="head-right">
+      <span class="sub">Space Age · Nauvis recipes · v2</span>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button type="button" role="tab" id="tab-calc" aria-selected="true">Calculator</button>
+        <button type="button" role="tab" id="tab-plan" aria-selected="false">Modules</button>
+        <button type="button" role="tab" id="tab-bp" aria-selected="false">Blueprint</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="view" id="view-calc">
+
+  <section class="panel controls" aria-label="Plan settings">
+    <div class="field">
+      <label for="item">Final product</label>
+      <select id="item"></select>
+    </div>
+    <div class="field">
+      <span class="lbl">Target</span>
+      <div class="target-row">
+        <input id="amount" type="number" min="0" step="any" value="8" aria-label="Target amount">
+        <div class="seg" role="group" aria-label="Target mode">
+          <button type="button" id="mode-buildings" aria-pressed="true">Buildings</button>
+          <button type="button" id="mode-rate" aria-pressed="false">Per min</button>
+        </div>
+      </div>
+      <span class="equiv" id="equiv"></span>
+    </div>
+    <div class="field">
+      <label for="asm">Assembler</label>
+      <select id="asm">
+        <option value="0.5">Assembling machine 1 (0.5)</option>
+        <option value="0.75" selected>Assembling machine 2 (0.75)</option>
+        <option value="1.25">Assembling machine 3 (1.25)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="furn">Furnace</label>
+      <select id="furn">
+        <option value="stone">Stone furnace (1)</option>
+        <option value="steel" selected>Steel furnace (2)</option>
+        <option value="electric">Electric furnace (2)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="belt">Belt</label>
+      <select id="belt">
+        <option value="15" selected>Transport belt (15/s)</option>
+        <option value="30">Fast belt (30/s)</option>
+        <option value="45">Express belt (45/s)</option>
+        <option value="60">Turbo belt (60/s)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="unit">Show rates</label>
+      <select id="unit">
+        <option value="60" selected>per minute</option>
+        <option value="1">per second</option>
+      </select>
+    </div>
+  </section>
+
+  <div id="warnings"></div>
+
+  <section class="summary" aria-label="Summary">
+    <div class="stat primary"><div class="k">Output</div><div class="v" id="s-out">–</div></div>
+    <div class="stat"><div class="k">Buildings to place</div><div class="v" id="s-bld">–</div></div>
+    <div class="stat"><div class="k">Iron plate in</div><div class="v" id="s-iron">–</div></div>
+    <div class="stat"><div class="k">Copper plate in</div><div class="v" id="s-copper">–</div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head"><h2>Build list</h2><button type="button" class="btn primary small" id="to-planner">Send to Modules</button></div>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Item</th><th class="num" id="th-rate">/min</th><th>Made in</th><th class="num">Buildings</th><th></th></tr></thead>
+          <tbody id="build"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Inputs</h2>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Item</th><th class="num" id="th-rate2">/min</th><th class="num">Belt lanes</th><th class="num">Belts</th><th></th></tr></thead>
+          <tbody id="inputs"></tbody>
+        </table>
+      </div>
+      <p class="sub" style="margin:10px 0 0">Ore inputs are for the furnaces in the build list. Mark an item <b>Import</b> to bring it in from your main bus instead of building it here. Click <b>Imported</b> on an input to build it here again.</p>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Full chain</h2>
+    <div class="tree" id="tree"></div>
+  </section>
+
+  <section class="notes">
+    <p><b>How the math works:</b> buildings = (items needed per second ÷ items per craft) × craft time ÷ building speed. In Buildings mode the target is that many buildings of the final product running flat out. Counts are rounded up; the small grey number is the exact value.</p>
+    <p><b>Not modelled yet:</b> modules, beacons, productivity bonuses, oil refining (petroleum gas, heavy oil and water are treated as inputs), foundry, electromagnetic plant, and recipes from other planets.</p>
+    <p><b>Recipe data</b> is typed in from the 2.0 recipes. Items tagged <span class="tag">check</span> are ones I'm less sure of; compare them against the in-game tooltip.</p>
+  </section>
+  </div>
+
+  <div class="view" id="view-plan" hidden>
+    <section class="panel pl-bar" aria-label="Layout controls">
+      <div class="field"><label for="pl-layout">Layout</label><select id="pl-layout"></select></div>
+      <div class="field"><label for="pl-name">Name</label><input id="pl-name" type="text" maxlength="60"></div>
+      <div class="btns"><button type="button" class="btn" id="pl-new">New</button><button type="button" class="btn" id="pl-dup">Copy</button><button type="button" class="btn" id="pl-del">Delete</button></div>
+      <span class="pl-sep"></span>
+      <div class="field"><label for="pl-add-item">Add block</label><select id="pl-add-item"></select></div>
+      <div class="btns"><button type="button" class="btn primary" id="pl-add-machine">+ Machine</button><button type="button" class="btn" id="pl-add-source">+ Source</button><button type="button" class="btn" id="pl-add-output">+ Output</button></div>
+    </section>
+    <div class="pl-main">
+      <div class="pl-canvas" id="pl-canvas" aria-label="Layout canvas">
+        <div class="pl-world" id="pl-world"><svg id="pl-svg" aria-hidden="true"></svg><div id="pl-nodes"></div></div>
+        <div class="pl-empty" id="pl-empty" hidden>Empty layout. Pick an item under Add block, or use “Send to Modules” on the Calculator tab.</div>
+        <div class="pl-zoom"><button type="button" id="pl-zout" aria-label="Zoom out">−</button><span id="pl-zl">100%</span><button type="button" id="pl-zin" aria-label="Zoom in">+</button><button type="button" id="pl-fit">Fit</button></div>
+      </div>
+      <aside class="panel pl-insp" id="pl-insp" aria-label="Selected block"></aside>
+    </div>
+    <section class="panel">
+      <div class="panel-head"><h2>Problems</h2><div class="pl-totals" id="pl-totals"></div></div>
+      <ul class="issues" id="pl-issues"></ul>
+    </section>
+  </div>
+
+  <div class="view" id="view-bp" hidden>
+    <section class="panel pl-bar" aria-label="Blueprint settings">
+      <div class="field" style="flex:2 1 260px"><label for="bp-scope">Show</label><select id="bp-scope"></select></div>
+      <div class="field"><label for="bp-belt">Belt</label><select id="bp-belt">
+        <option value="15">Transport belt (15/s)</option><option value="30">Fast belt (30/s)</option><option value="45">Express belt (45/s)</option><option value="60">Turbo belt (60/s)</option></select></div>
+      <div class="field"><label for="bp-ins">Inserter</label><select id="bp-ins">
+        <option value="basic">Inserter</option><option value="fast">Fast inserter</option><option value="bulk">Bulk inserter</option></select></div>
+      <div class="field" style="flex:0 1 120px"><label for="bp-maxrow">Max per row</label><input id="bp-maxrow" type="number" min="1" max="40" step="1"></div>
+      <div class="btns"><button type="button" class="btn primary" id="bp-edit" hidden>Edit layout</button><button type="button" class="btn primary" id="bp-copy">Copy blueprint</button></div>
+    </section>
+    <div id="bp-warn" class="warns"></div>
+    <section class="panel">
+      <div class="panel-head"><h2 id="bp-title">Belt layout</h2><div class="pl-totals" id="bp-totals"></div></div>
+      <div class="ed-bar" id="ed-bar" hidden>
+        <div class="seg" role="group" aria-label="Tool" id="ed-tools">
+          <button type="button" data-tool="select" title="1">Select</button><button type="button" data-tool="belt" title="2">Belt</button><button type="button" data-tool="ug" title="3">Underground</button><button type="button" data-tool="ins" title="4">Inserter</button><button type="button" data-tool="pole" title="5">Pole</button><button type="button" data-tool="feed" title="6">Input</button><button type="button" data-tool="erase" title="7">Erase</button>
+        </div>
+        <select id="ed-ins" aria-label="Inserter type"><option value="basic">Inserter</option><option value="fast">Fast inserter</option><option value="bulk">Bulk inserter</option><option value="long">Long-handed inserter</option></select>
+        <select id="ed-feed" aria-label="Input item"></select>
+        <button type="button" class="btn" id="ed-rot">Facing →</button>
+        <button type="button" class="btn" id="ed-undo">Undo</button>
+        <span class="sub ed-hint" id="ed-hint"></span>
+      </div>
+      <div class="lay-grid">
+        <div class="viewport" id="vp">
+          <canvas id="cv" aria-label="Factory layout, tile by tile"></canvas>
+          <div class="tip" id="tip" hidden></div>
+          <div class="pl-zoom"><button type="button" id="bp-zout" aria-label="Zoom out">−</button><span id="bp-zl">100%</span><button type="button" id="bp-zin" aria-label="Zoom in">+</button><button type="button" id="bp-fit">Fit</button></div>
+        </div>
+        <aside class="rowlist" id="rowlist" aria-label="Rows"></aside>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="bpbox" id="bpbox" hidden>
+        <label class="lane" for="bptext">Blueprint string. In Factorio, open the blueprint library and use Import string.</label>
+        <textarea id="bptext" readonly></textarea>
+        <span class="sub" id="bpnote"></span>
+      </div>
+    </section>
+    <section class="notes">
+      <p><b>Whole chain</b> lays every module out on one main bus: raw inputs and each product get a bus column on the left, and each module becomes one or more rows of machines fed from the bus. Modules making the same item are merged into one column. <b>A single module</b> gets the same treatment on its own, with its ingredients as bus inputs, so you can build and test it by itself.</p>
+      <p><b>Rows</b> split when an input lane or the output belt would be over capacity, or past the max per row. Each row's input belt carries two ingredients on separate lanes. A second belt with long-handed inserters carries a third and fourth.</p>
+      <p><b>Editing:</b> pick a single module, then Edit layout to get an editable copy. Machines can be moved but not added or removed; belts, undergrounds, inserters and poles are yours. Belt lanes update as you edit. Splitters from the generated layout are kept and mix their inputs; placing new splitters and side-loading onto undergrounds or splitters aren't modelled yet. Inserters lined up with a belt are assumed to drop on its right lane.</p>
+      <p><b>Before you build it:</b> fluids are drawn as pipe guides and left out of the blueprint, so place pipes by hand. Burner furnaces get a coal lane for fuel that the Modules tab doesn't count. Inserter speeds are approximate. The tile layout generator comes from your friend's version of this planner.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+// ---------- data ----------
+// kind: craft | fluidcraft (assembler 2+) | smelt | chem
+const ITEMS = {
+  "iron-ore": ["Iron ore", "raw"], "copper-ore": ["Copper ore", "raw"], "stone": ["Stone", "raw"], "coal": ["Coal", "raw"],
+  "water": ["Water", "fluid", true], "petroleum-gas": ["Petroleum gas", "fluid", true], "heavy-oil": ["Heavy oil", "fluid", true],
+  "iron-plate": ["Iron plate", "plate"], "copper-plate": ["Copper plate", "plate"], "stone-brick": ["Stone brick", "plate"], "steel-plate": ["Steel plate", "plate"],
+  "iron-gear-wheel": ["Iron gear wheel", "mid"], "copper-cable": ["Copper cable", "mid"], "iron-stick": ["Iron stick", "mid"], "pipe": ["Pipe", "mid"],
+  "electronic-circuit": ["Electronic circuit", "green"], "advanced-circuit": ["Advanced circuit", "red"], "processing-unit": ["Processing unit", "blue"],
+  "plastic-bar": ["Plastic bar", "mid"], "sulfur": ["Sulfur", "yellow"], "sulfuric-acid": ["Sulfuric acid", "fluid", true], "lubricant": ["Lubricant", "fluid", true],
+  "engine-unit": ["Engine unit", "mid"], "electric-engine-unit": ["Electric engine unit", "mid"], "battery": ["Battery", "mid"],
+  "flying-robot-frame": ["Flying robot frame", "mid"], "low-density-structure": ["Low density structure", "mid"],
+  "inserter": ["Inserter", "part"], "transport-belt": ["Transport belt", "part"], "firearm-magazine": ["Firearm magazine", "part"],
+  "piercing-rounds-magazine": ["Piercing rounds magazine", "part"], "grenade": ["Grenade", "part"], "stone-wall": ["Wall", "part"],
+  "rail": ["Rail", "part"], "electric-furnace": ["Electric furnace", "part"], "productivity-module": ["Productivity module", "part"],
+  "automation-science-pack": ["Automation science (red)", "red"], "logistic-science-pack": ["Logistic science (green)", "green"],
+  "military-science-pack": ["Military science (grey)", "mil"], "chemical-science-pack": ["Chemical science (blue)", "blue"],
+  "production-science-pack": ["Production science (purple)", "purple"], "utility-science-pack": ["Utility science (yellow)", "yellow"],
+};
+const R = (time, out, ins, kind = "craft", check = false) => ({ time, out, ins, kind, check });
+const RECIPES = {
+  "iron-plate": R(3.2, 1, { "iron-ore": 1 }, "smelt"),
+  "copper-plate": R(3.2, 1, { "copper-ore": 1 }, "smelt"),
+  "stone-brick": R(3.2, 1, { "stone": 2 }, "smelt"),
+  "steel-plate": R(16, 1, { "iron-plate": 5 }, "smelt"),
+  "iron-gear-wheel": R(0.5, 1, { "iron-plate": 2 }),
+  "copper-cable": R(0.5, 2, { "copper-plate": 1 }),
+  "iron-stick": R(0.5, 2, { "iron-plate": 1 }),
+  "pipe": R(0.5, 1, { "iron-plate": 1 }),
+  "electronic-circuit": R(0.5, 1, { "iron-plate": 1, "copper-cable": 3 }),
+  "advanced-circuit": R(6, 1, { "plastic-bar": 2, "copper-cable": 4, "electronic-circuit": 2 }),
+  "processing-unit": R(10, 1, { "electronic-circuit": 20, "advanced-circuit": 2, "sulfuric-acid": 5 }, "fluidcraft"),
+  "plastic-bar": R(1, 2, { "petroleum-gas": 20, "coal": 1 }, "chem"),
+  "sulfur": R(1, 2, { "water": 30, "petroleum-gas": 30 }, "chem"),
+  "sulfuric-acid": R(1, 50, { "iron-plate": 1, "sulfur": 5, "water": 100 }, "chem"),
+  "lubricant": R(1, 10, { "heavy-oil": 10 }, "chem"),
+  "engine-unit": R(10, 1, { "steel-plate": 1, "iron-gear-wheel": 1, "pipe": 2 }),
+  "electric-engine-unit": R(10, 1, { "engine-unit": 1, "electronic-circuit": 2, "lubricant": 15 }, "fluidcraft"),
+  "battery": R(4, 1, { "iron-plate": 1, "copper-plate": 1, "sulfuric-acid": 20 }, "chem"),
+  "flying-robot-frame": R(20, 1, { "electric-engine-unit": 1, "battery": 2, "steel-plate": 1, "electronic-circuit": 3 }),
+  "low-density-structure": R(15, 1, { "steel-plate": 2, "copper-plate": 20, "plastic-bar": 5 }, "craft", true),
+  "inserter": R(0.5, 1, { "electronic-circuit": 1, "iron-gear-wheel": 1, "iron-plate": 1 }),
+  "transport-belt": R(0.5, 2, { "iron-gear-wheel": 1, "iron-plate": 1 }),
+  "firearm-magazine": R(1, 1, { "iron-plate": 4 }),
+  "piercing-rounds-magazine": R(3, 1, { "firearm-magazine": 1, "steel-plate": 1, "copper-plate": 5 }, "craft", true),
+  "grenade": R(8, 1, { "coal": 10, "iron-plate": 5 }),
+  "stone-wall": R(0.5, 1, { "stone-brick": 5 }),
+  "rail": R(0.5, 2, { "stone": 1, "steel-plate": 1, "iron-stick": 1 }),
+  "electric-furnace": R(5, 1, { "steel-plate": 10, "advanced-circuit": 5, "stone-brick": 10 }),
+  "productivity-module": R(15, 1, { "advanced-circuit": 5, "electronic-circuit": 5 }),
+  "automation-science-pack": R(5, 1, { "copper-plate": 1, "iron-gear-wheel": 1 }),
+  "logistic-science-pack": R(6, 1, { "inserter": 1, "transport-belt": 1 }),
+  "military-science-pack": R(10, 2, { "piercing-rounds-magazine": 1, "grenade": 1, "stone-wall": 2 }, "craft", true),
+  "chemical-science-pack": R(24, 2, { "engine-unit": 2, "advanced-circuit": 3, "sulfur": 1 }),
+  "production-science-pack": R(21, 3, { "electric-furnace": 1, "productivity-module": 1, "rail": 30 }),
+  "utility-science-pack": R(21, 3, { "low-density-structure": 3, "processing-unit": 2, "flying-robot-frame": 1 }),
+};
+const SWATCH = { raw: "--sw-raw", plate: "--sw-plate", mid: "--sw-mid", part: "--sw-part", red: "--sw-red", green: "--sw-green", mil: "--sw-mil", blue: "--sw-blue", purple: "--sw-purple", yellow: "--sw-yellow", fluid: "--sw-fluid" };
+const FURNACE = { stone: ["Stone furnace", 1], steel: ["Steel furnace", 2], electric: ["Electric furnace", 2] };
+const ASM_NAME = { "0.5": "Assembling machine 1", "0.75": "Assembling machine 2", "1.25": "Assembling machine 3" };
+const PICKABLE = [
+  "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack", "production-science-pack", "utility-science-pack",
+  "iron-gear-wheel", "copper-cable", "electronic-circuit", "advanced-circuit", "processing-unit", "plastic-bar", "sulfur", "sulfuric-acid", "lubricant",
+  "engine-unit", "electric-engine-unit", "battery", "flying-robot-frame", "low-density-structure",
+  "inserter", "transport-belt", "firearm-magazine", "piercing-rounds-magazine", "grenade", "stone-wall", "rail", "electric-furnace", "productivity-module", "pipe", "iron-stick",
+  "iron-plate", "copper-plate", "stone-brick", "steel-plate",
+];
+
+// ---------- state ----------
+const state = { item: "logistic-science-pack", amount: 8, mode: "buildings", asm: "0.75", furn: "steel", belt: "15", unit: "60", imports: [] };
+try { Object.assign(state, JSON.parse(localStorage.getItem("fcp-state") || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem("fcp-state", JSON.stringify(state)); } catch (e) {} };
+
+// ---------- solver ----------
+function machineFor(kind, warnings) {
+  if (kind === "smelt") { const [n, s] = FURNACE[state.furn]; return { name: n, speed: s }; }
+  if (kind === "chem") return { name: "Chemical plant", speed: 1 };
+  let sp = state.asm;
+  if (kind === "fluidcraft" && sp === "0.5") { sp = "0.75"; warnings.add("Recipes with fluid ingredients need Assembling machine 2 or better. Those rows assume Assembling machine 2."); }
+  return { name: ASM_NAME[sp], speed: parseFloat(sp) };
+}
+
+function targetRate() { // items per second of the final product
+  const r = RECIPES[state.item];
+  const amt = Math.max(0, Number(state.amount) || 0);
+  if (state.mode === "rate") return amt / 60;
+  const m = machineFor(r.kind, new Set());
+  return amt * m.speed * r.out / r.time;
+}
+
+function solve() {
+  const warnings = new Set();
+  const imports = new Set(state.imports.filter(i => i !== state.item));
+  const made = new Map();   // id -> {rate, depth}
+  const inputs = new Map(); // id -> {rate, imported}
+  function expand(id, rate, depth) {
+    const recipe = RECIPES[id];
+    const isLeaf = !recipe || (depth > 0 && imports.has(id));
+    const node = { id, rate, depth, children: [], leaf: isLeaf, imported: isLeaf && !!recipe };
+    if (isLeaf) {
+      const cur = inputs.get(id) || { rate: 0, imported: !!recipe };
+      cur.rate += rate; inputs.set(id, cur);
+      return node;
+    }
+    const m = machineFor(recipe.kind, warnings);
+    const crafts = rate / recipe.out;
+    node.machine = m; node.count = crafts * recipe.time / m.speed;
+    const cur = made.get(id) || { rate: 0, depth: 0 };
+    cur.rate += rate; cur.depth = Math.max(cur.depth, depth); made.set(id, cur);
+    for (const [inId, qty] of Object.entries(recipe.ins)) node.children.push(expand(inId, crafts * qty, depth + 1));
+    return node;
+  }
+  const tree = expand(state.item, targetRate(), 0);
+  const build = [...made.entries()].map(([id, v]) => {
+    const r = RECIPES[id]; const m = machineFor(r.kind, warnings);
+    const exact = v.rate / r.out * r.time / m.speed;
+    return { id, rate: v.rate, depth: v.depth, machine: m, exact, count: Math.ceil(exact - 1e-9) };
+  }).sort((a, b) => a.depth - b.depth);
+  // ore feeding the furnaces is shown as an input automatically; plates only appear as inputs when imported
+  return { tree, build, inputs, warnings };
+}
+
+// ---------- render ----------
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 1) => { if (!isFinite(n)) return "–"; const v = Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(d); return v.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1"); };
+const rateStr = r => fmt(r * Number(state.unit), state.unit === "1" ? 2 : 1);
+const unitLbl = () => state.unit === "60" ? "/min" : "/s";
+const sw = id => { const c = ITEMS[id] ? ITEMS[id][1] : "raw"; return `<span class="sw" style="background:var(${SWATCH[c]})"></span>`; };
+const nm = id => ITEMS[id] ? ITEMS[id][0] : id;
+const isFluid = id => !!(ITEMS[id] && ITEMS[id][2]);
+const checkTag = id => RECIPES[id] && RECIPES[id].check ? ` <span class="tag" title="Compare with the in-game recipe">check</span>` : "";
+
+function importBtn(id) {
+  if (id === state.item || !RECIPES[id]) return "";
+  const on = state.imports.includes(id);
+  return `<button type="button" class="pill${on ? " on" : ""}" data-imp="${id}" aria-pressed="${on}" title="${on ? "Build this here instead" : "Bring this in from your bus instead of building it"}">${on ? "Imported" : "Import"}</button>`;
+}
+
+function render() {
+  const { tree, build, inputs, warnings } = solve();
+  const out = tree.rate;
+  $("th-rate").textContent = unitLbl(); $("th-rate2").textContent = unitLbl();
+  $("equiv").textContent = state.mode === "buildings"
+    ? `= ${rateStr(out)} ${nm(state.item).split(" (")[0]}${unitLbl()}`
+    : `= ${fmt(tree.count, 2)} buildings of ${nm(state.item).split(" (")[0]}`;
+
+  $("warnings").innerHTML = [...warnings].map(w => `<div class="warnbox">${w}</div>`).join("");
+
+  $("s-out").innerHTML = `${rateStr(out)}<small>${unitLbl()}</small>`;
+  $("s-bld").innerHTML = `${build.reduce((s, b) => s + b.count, 0)}<small>total</small>`;
+  // iron/copper plate consumed by the chain (built here or imported)
+  const plateUse = id => {
+    let r = 0;
+    for (const b of build) { const rec = RECIPES[b.id]; if (rec.ins[id]) r += b.rate / rec.out * rec.ins[id]; }
+    return r;
+  };
+  $("s-iron").innerHTML = `${rateStr(plateUse("iron-plate"))}<small>${unitLbl()}</small>`;
+  $("s-copper").innerHTML = `${rateStr(plateUse("copper-plate"))}<small>${unitLbl()}</small>`;
+
+  $("build").innerHTML = build.map(b => {
+    const pct = Math.min(1, b.exact / b.count);
+    return `<tr>
+      <td><span class="item">${sw(b.id)}${nm(b.id)}${checkTag(b.id)}</span></td>
+      <td class="num">${rateStr(b.rate)}</td>
+      <td class="mach">${b.machine.name}</td>
+      <td class="big"><span class="exact">${fmt(b.exact, 2)}</span>${b.count}<span class="util${pct > 0.999 ? " full" : ""}" title="${Math.round(pct * 100)}% busy"><i style="width:${pct * 100}%"></i></span></td>
+      <td>${importBtn(b.id)}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">Nothing to build at this target.</td></tr>`;
+
+  const beltPerSec = Number(state.belt);
+  const inRows = [...inputs.entries()].sort((a, b) => (a[1].imported === b[1].imported ? b[1].rate - a[1].rate : a[1].imported ? -1 : 1));
+  $("inputs").innerHTML = inRows.map(([id, v]) => {
+    const fluid = isFluid(id);
+    const lanes = v.rate / (beltPerSec / 2), belts = v.rate / beltPerSec;
+    return `<tr>
+      <td><span class="item">${sw(id)}${nm(id)}</span></td>
+      <td class="num">${rateStr(v.rate)}</td>
+      <td class="num">${fluid ? "pipe" : fmt(lanes, 2)}</td>
+      <td class="num">${fluid ? "–" : fmt(belts, 2)}</td>
+      <td>${v.imported ? importBtn(id) : ""}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">No inputs.</td></tr>`;
+
+  const rows = [];
+  (function walk(n, prefix, last, isRoot) {
+    const twig = isRoot ? "" : `<span class="twig">${prefix}${last ? "└─" : "├─"}</span>`;
+    const right = n.leaf
+      ? `${rateStr(n.rate)}${unitLbl()} · ${n.imported ? "imported" : "input"}`
+      : `${rateStr(n.rate)}${unitLbl()} · <b>${fmt(n.count, 2)}</b> ${n.machine.name.replace("Assembling machine", "AM")}`;
+    rows.push(`<div class="node${n.leaf ? " leaf" : ""}"><div class="left">${twig}${sw(n.id)}<span class="name">${nm(n.id)}</span>${n.imported ? ` <span class="tag imp">import</span>` : ""}</div><div class="right">${right}</div></div>`);
+    const childPrefix = isRoot ? "" : prefix + (last ? "   " : "│  ");
+    n.children.forEach((c, i) => walk(c, childPrefix, i === n.children.length - 1, false));
+  })(tree, "", true, true);
+  $("tree").innerHTML = rows.join("");
+
+  syncControls();
+  save();
+}
+
+function syncControls() {
+  $("item").value = state.item; $("amount").value = state.amount;
+  $("asm").value = state.asm; $("furn").value = state.furn; $("belt").value = state.belt; $("unit").value = state.unit;
+  $("mode-buildings").setAttribute("aria-pressed", state.mode === "buildings");
+  $("mode-rate").setAttribute("aria-pressed", state.mode === "rate");
+}
+
+// ---------- wire up ----------
+const groups = [["Science packs", c => /science/.test(c)], ["Intermediates", c => !/science|plate|brick/.test(c)], ["Plates", c => /plate|brick/.test(c)]];
+$("item").innerHTML = groups.map(([g, f]) => `<optgroup label="${g}">${PICKABLE.filter(f).map(id => `<option value="${id}">${nm(id)}</option>`).join("")}</optgroup>`).join("");
+if (!RECIPES[state.item]) state.item = "logistic-science-pack";
+
+$("item").addEventListener("change", e => { state.item = e.target.value; render(); });
+$("amount").addEventListener("input", e => { state.amount = e.target.value; render(); });
+$("asm").addEventListener("change", e => { state.asm = e.target.value; render(); });
+$("furn").addEventListener("change", e => { state.furn = e.target.value; render(); });
+$("belt").addEventListener("change", e => { state.belt = e.target.value; render(); });
+$("unit").addEventListener("change", e => { state.unit = e.target.value; render(); });
+$("mode-buildings").addEventListener("click", () => { state.mode = "buildings"; render(); });
+$("mode-rate").addEventListener("click", () => { state.mode = "rate"; render(); });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-imp]"); if (!b) return;
+  const id = b.dataset.imp;
+  state.imports = state.imports.includes(id) ? state.imports.filter(x => x !== id) : [...state.imports, id];
+  render();
+});
+
+// ================= LAYOUT PLANNER =================
+const MACH = {
+  am1: { name: "Assembling machine 1", short: "AM1", speed: 0.5, kinds: ["craft"] },
+  am2: { name: "Assembling machine 2", short: "AM2", speed: 0.75, kinds: ["craft", "fluidcraft"] },
+  am3: { name: "Assembling machine 3", short: "AM3", speed: 1.25, kinds: ["craft", "fluidcraft"] },
+  stone: { name: "Stone furnace", short: "Stone furnace", speed: 1, kinds: ["smelt"] },
+  steel: { name: "Steel furnace", short: "Steel furnace", speed: 2, kinds: ["smelt"] },
+  electric: { name: "Electric furnace", short: "Electric furnace", speed: 2, kinds: ["smelt"] },
+  chem: { name: "Chemical plant", short: "Chem plant", speed: 1, kinds: ["chem"] },
+};
+const ASM_KEY = { "0.5": "am1", "0.75": "am2", "1.25": "am3" };
+const BELT_NAME = { "15": "Transport belt", "30": "Fast belt", "45": "Express belt", "60": "Turbo belt" };
+const NODE_W = 224, PORT_Y = 19, GRID = 12;
+const EPS = 1e-6;
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const short = id => nm(id).split(" (")[0];
+const machOptions = item => Object.keys(MACH).filter(k => MACH[k].kinds.includes(RECIPES[item].kind));
+function defaultMach(item) {
+  const k = RECIPES[item].kind;
+  if (k === "smelt") return state.furn;
+  if (k === "chem") return "chem";
+  const a = ASM_KEY[state.asm];
+  return k === "fluidcraft" && a === "am1" ? "am2" : a;
+}
+function nodeLabel(n) {
+  if (!n) return "?";
+  if (n.kind === "machine") return `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}`;
+  if (n.kind === "source") return `${short(n.item)} source`;
+  return "Output";
+}
+
+// ---------- layout store ----------
+const PL = { layouts: {}, order: [], current: null, sel: null, sim: null, temp: null };
+const cur = () => PL.layouts[PL.current];
+const newLayout = name => ({ id: uid(), name, nodes: [], edges: [], view: { x: 40, y: 40, z: 1 }, needsFit: true });
+function plSave() { try { localStorage.setItem("fcp-layouts", JSON.stringify({ layouts: PL.layouts, order: PL.order, current: PL.current })); } catch (e) {} }
+function addLayout(L) { PL.layouts[L.id] = L; PL.order.push(L.id); PL.current = L.id; PL.sel = null; }
+function plLoad() {
+  try {
+    const d = JSON.parse(localStorage.getItem("fcp-layouts") || "null");
+    if (d && d.layouts) { PL.layouts = d.layouts; PL.order = (d.order || Object.keys(d.layouts)).filter(id => d.layouts[id]); PL.current = d.current; }
+  } catch (e) {}
+  if (!PL.order.length) addLayout(layoutFromCalc("Example: " + short(state.item)));
+  if (!PL.layouts[PL.current]) PL.current = PL.order[0];
+}
+
+// Build a connected layout from the calculator's current chain
+function layoutFromCalc(name) {
+  const { build, inputs } = solve();
+  const L = newLayout(name);
+  const depth = new Map(build.map(b => [b.id, b.depth]));
+  for (const id of inputs.keys()) {
+    let d = 0;
+    build.forEach(b => { if (RECIPES[b.id].ins[id] !== undefined) d = Math.max(d, b.depth + 1); });
+    depth.set(id, d);
+  }
+  const maxD = Math.max(0, ...depth.values());
+  const colY = {}, idOf = {};
+  const estH = n => n.kind === "machine" ? 110 + 21 * Object.keys(RECIPES[n.item].ins).length : n.kind === "source" ? 96 : 92;
+  const place = (n, d) => {
+    const col = maxD - d;
+    n.x = 24 + col * 312; n.y = 24 + (colY[col] || 0);
+    colY[col] = (colY[col] || 0) + estH(n) + 40;
+    L.nodes.push(n);
+  };
+  [...inputs.entries()].sort((a, b) => depth.get(b[0]) - depth.get(a[0])).forEach(([id, v]) => {
+    const n = { id: uid(), kind: "source", item: id, rate: v.rate };
+    idOf[id] = n.id; place(n, depth.get(id));
+  });
+  [...build].sort((a, b) => b.depth - a.depth).forEach(b => {
+    const n = { id: uid(), kind: "machine", item: b.id, count: b.count, mach: defaultMach(b.id) };
+    idOf[b.id] = n.id; place(n, b.depth);
+  });
+  const out = { id: uid(), kind: "output", item: null };
+  place(out, -1);
+  for (const b of build) for (const ing of Object.keys(RECIPES[b.id].ins)) {
+    if (idOf[ing]) L.edges.push({ id: uid(), from: idOf[ing], to: idOf[b.id], belt: state.belt });
+  }
+  if (idOf[state.item]) L.edges.push({ id: uid(), from: idOf[state.item], to: out.id, belt: state.belt });
+  return L;
+}
+
+// ---------- flow simulation ----------
+// Pass 1 (downstream → upstream): how much each block is asked to make.
+// Pass 2 (upstream → downstream): how much actually arrives, limited by supply and belts.
+function simulate(L) {
+  const byId = new Map(L.nodes.map(n => [n.id, n]));
+  const edges = L.edges.filter(e => byId.has(e.from) && byId.has(e.to));
+  const inE = new Map(), outE = new Map();
+  L.nodes.forEach(n => { inE.set(n.id, []); outE.set(n.id, []); });
+  edges.forEach(e => { outE.get(e.from).push(e); inE.get(e.to).push(e); });
+
+  const indeg = new Map(L.nodes.map(n => [n.id, inE.get(n.id).length]));
+  const order = [], q = L.nodes.filter(n => !indeg.get(n.id)).map(n => n.id);
+  while (q.length) {
+    const id = q.shift(); order.push(id);
+    for (const e of outE.get(id)) { indeg.set(e.to, indeg.get(e.to) - 1); if (indeg.get(e.to) === 0) q.push(e.to); }
+  }
+  const cyclic = order.length < L.nodes.length;
+  if (cyclic) L.nodes.forEach(n => { if (!order.includes(n.id)) order.push(n.id); });
+
+  const N = {}, E = {};
+  for (const n of L.nodes) {
+    const r = { maxOut: 0, need: {}, recv: {}, T: 0, A: 0, down: 0, sent: 0, starved: false, limits: [], missing: [] };
+    if (n.kind === "machine") {
+      const rec = RECIPES[n.item], cps = Math.max(0, Number(n.count) || 0) * MACH[n.mach].speed / rec.time;
+      r.maxOut = cps * rec.out;
+      for (const [i, qty] of Object.entries(rec.ins)) { r.need[i] = cps * qty; r.recv[i] = 0; }
+    } else if (n.kind === "source") r.maxOut = Math.max(0, Number(n.rate) || 0);
+    N[n.id] = r;
+  }
+  const itemOf = id => byId.get(id).item;
+  edges.forEach(e => {
+    const item = itemOf(e.from);
+    E[e.id] = { item, cap: isFluid(item) ? Infinity : Number(e.belt || 15), wanted: 0, req: 0, flow: 0, unused: false, beltLimited: false };
+  });
+
+  for (const id of [...order].reverse()) {
+    const n = byId.get(id), r = N[id];
+    if (n.kind === "output") {
+      for (const e of inE.get(id)) { const s = E[e.id]; s.wanted = N[e.from].maxOut; s.req = Math.min(s.cap, s.wanted); }
+      continue;
+    }
+    r.down = outE.get(id).reduce((s, e) => s + E[e.id].req, 0);
+    r.T = outE.get(id).length ? Math.min(r.maxOut, r.down) : r.maxOut;
+    if (n.kind !== "machine") continue;
+    const frac = r.maxOut > 0 ? r.T / r.maxOut : 0;
+    for (const e of inE.get(id)) if (r.need[E[e.id].item] === undefined) E[e.id].unused = true;
+    for (const [i, nd] of Object.entries(r.need)) {
+      const es = inE.get(id).filter(e => E[e.id].item === i);
+      if (!es.length) { r.missing.push(i); continue; }
+      const W = es.reduce((s, e) => s + N[e.from].maxOut, 0);
+      es.forEach(e => {
+        const s = E[e.id];
+        s.wanted = nd * frac * (W > 0 ? N[e.from].maxOut / W : 1 / es.length);
+        s.req = Math.min(s.cap, s.wanted);
+      });
+    }
+  }
+
+  for (const id of order) {
+    const n = byId.get(id), r = N[id];
+    if (n.kind === "output") continue;
+    if (n.kind === "machine") {
+      const frac = r.maxOut > 0 ? r.T / r.maxOut : 0;
+      let f = r.T > 0 ? 1 : 0;
+      for (const [i, nd] of Object.entries(r.need)) {
+        const want = nd * frac; if (want <= 0) continue;
+        const g = r.recv[i] / want;
+        if (g < 1 - EPS) r.limits.push(i);
+        f = Math.min(f, g);
+      }
+      r.A = r.T * Math.max(0, Math.min(1, f));
+      r.starved = r.T > 0 && r.A < r.T * (1 - EPS);
+    } else r.A = r.T;
+    const outs = outE.get(id), sumReq = outs.reduce((s, e) => s + E[e.id].req, 0);
+    const k = sumReq > r.A ? (sumReq > 0 ? r.A / sumReq : 0) : 1;
+    for (const e of outs) {
+      const s = E[e.id];
+      s.flow = s.req * k; r.sent += s.flow;
+      s.beltLimited = s.wanted > s.cap * (1 + EPS);
+      const t = N[e.to]; t.recv[s.item] = (t.recv[s.item] || 0) + s.flow;
+    }
+  }
+  return { N, E, byId, inE, outE, cyclic };
+}
+
+// ---------- rendering ----------
+const isSel = (type, id) => PL.sel && PL.sel.type === type && PL.sel.id === id;
+function nodeHTML(n, r) {
+  const cls = `bn ${n.kind}${isSel("node", n.id) ? " sel" : ""}`;
+  const u = unitLbl();
+  if (n.kind === "machine") {
+    const bad = r.starved || r.missing.length;
+    const util = r.maxOut > 0 ? r.A / r.maxOut : 0;
+    const frac = r.maxOut > 0 ? r.T / r.maxOut : 0;
+    const rows = Object.keys(r.need).map(i => {
+      const shortOn = r.limits.includes(i) || r.missing.includes(i);
+      return `<div class="bn-row${shortOn ? " short" : ""}"><span class="item">${sw(i)}<span class="t">${esc(short(i))}</span></span><span class="v">${r.missing.includes(i) ? "none" : `${rateStr(r.recv[i] || 0)} / ${rateStr(r.need[i] * frac)}`}</span></div>`;
+    }).join("");
+    return `<div class="${cls}${bad ? " bad" : ""}" data-node="${n.id}" style="left:${n.x}px;top:${n.y}px">
+      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(nm(n.item))}</span></span><span class="bn-pct" title="How busy these buildings are">${Math.round(util * 100)}%</span></div>
+      <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${MACH[n.mach].short}</span></div>
+      <div class="bn-sec"><span>In</span><span>got / need ${u}</span></div>${rows}
+      <div class="bn-out"><span>Out</span><span class="v">${rateStr(r.A)} / ${rateStr(r.maxOut)} max</span></div>
+      <span class="port in"></span><span class="port out" data-port="${n.id}" title="Drag to another block to add a belt"></span></div>`;
+  }
+  if (n.kind === "source") {
+    const short_ = r.down > r.maxOut * (1 + EPS);
+    return `<div class="${cls}${short_ ? " bad" : ""}" data-node="${n.id}" style="left:${n.x}px;top:${n.y}px">
+      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(nm(n.item))}</span></span></div>
+      <div class="bn-sub"><span class="bn-kind">Source</span><span>${rateStr(r.maxOut)}${u}</span></div>
+      <div class="bn-out"><span>Sending</span><span class="v">${rateStr(r.sent)} / ${rateStr(r.maxOut)}</span></div>
+      <span class="port out" data-port="${n.id}" title="Drag to another block to add a belt"></span></div>`;
+  }
+  const items = Object.entries(r.recv).filter(([, v]) => v > EPS);
+  const rows = items.map(([i, v]) => `<div class="bn-row"><span class="item">${sw(i)}<span class="t">${esc(short(i))}</span></span><span class="v">${rateStr(v)}${u}</span></div>`).join("")
+    || `<div class="bn-row"><span class="t" style="color:var(--muted)">Nothing connected</span></div>`;
+  return `<div class="${cls}" data-node="${n.id}" style="left:${n.x}px;top:${n.y}px">
+    <div class="bn-head"><span class="item"><span class="t">Output</span></span></div>
+    <div class="bn-sec"><span>Receiving</span></div>${rows}<div style="height:8px"></div>
+    <span class="port in"></span></div>`;
+}
+
+function edgeGeom(a, b) {
+  const x1 = a.x + NODE_W, y1 = a.y + PORT_Y, x2 = b.x - 4, y2 = b.y + PORT_Y;
+  const dx = Math.max(50, Math.abs(x2 - x1) / 2);
+  return { d: `M${x1} ${y1} C${x1 + dx} ${y1} ${x2 - dx} ${y2} ${x2} ${y2}`, x1, y1, x2, y2 };
+}
+function drawEdges() {
+  const L = cur(), S = PL.sim; if (!S) return;
+  let html = "";
+  for (const e of L.edges) {
+    const a = S.byId.get(e.from), b = S.byId.get(e.to), s = S.E[e.id];
+    if (!a || !b || !s) continue;
+    const g = edgeGeom(a, b);
+    const col = `var(${SWATCH[ITEMS[s.item] ? ITEMS[s.item][1] : "raw"]})`;
+    const fluid = s.cap === Infinity;
+    const label = s.unused ? "not used" : `${rateStr(s.flow)}${fluid ? "" : ` · ${Math.round(s.flow / s.cap * 100)}%`}`;
+    const mx = (g.x1 + g.x2) / 2, my = (g.y1 + g.y2) / 2, w = label.length * 6.9 + 16;
+    html += `<g class="edge${isSel("edge", e.id) ? " sel" : ""}${s.unused || s.beltLimited ? " bad" : ""}" data-edge="${e.id}">
+      <path class="hit" d="${g.d}"/><path class="line${fluid ? " fluid" : ""}" d="${g.d}" style="stroke:${col}"/>
+      <path class="arrow" d="M${g.x2 - 8} ${g.y2 - 5} L${g.x2} ${g.y2} L${g.x2 - 8} ${g.y2 + 5}" style="stroke:${col}"/>
+      <rect class="lbl-bg" x="${mx - w / 2}" y="${my - 10}" width="${w}" height="20"/><text class="lbl" x="${mx}" y="${my + 4}">${esc(label)}</text></g>`;
+  }
+  if (PL.temp) {
+    const a = S.byId.get(PL.temp.from);
+    if (a) { const x1 = a.x + NODE_W, y1 = a.y + PORT_Y, dx = Math.max(40, Math.abs(PL.temp.x - x1) / 2);
+      html += `<path class="temp" d="M${x1} ${y1} C${x1 + dx} ${y1} ${PL.temp.x - dx} ${PL.temp.y} ${PL.temp.x} ${PL.temp.y}"/>`; }
+  }
+  $("pl-svg").innerHTML = html;
+}
+
+function applyView() {
+  const v = cur().view, c = $("pl-canvas");
+  $("pl-world").style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.z})`;
+  c.style.backgroundSize = `${24 * v.z}px ${24 * v.z}px`;
+  c.style.backgroundPosition = `${v.x}px ${v.y}px`;
+  $("pl-zl").textContent = Math.round(v.z * 100) + "%";
+}
+
+function renderPlanner() {
+  const L = cur();
+  PL.sim = simulate(L);
+  $("pl-nodes").innerHTML = L.nodes.map(n => nodeHTML(n, PL.sim.N[n.id])).join("");
+  $("pl-empty").hidden = L.nodes.length > 0;
+  drawEdges();
+  applyView();
+  renderIssues();
+  renderStats();
+  plSave();
+}
+
+function renderLayoutBar() {
+  $("pl-layout").innerHTML = PL.order.map(id => `<option value="${id}">${esc(PL.layouts[id].name || "Untitled")}</option>`).join("");
+  $("pl-layout").value = PL.current;
+  $("pl-name").value = cur().name;
+}
+
+function renderIssues() {
+  const L = cur(), S = PL.sim, u = unitLbl(), list = [];
+  if (S.cyclic) list.push(["", "This layout has a loop. Numbers inside the loop may be off."]);
+  for (const n of L.nodes) {
+    const r = S.N[n.id], who = nodeLabel(n);
+    if (n.kind === "machine") {
+      r.missing.forEach(i => list.push([`node:${n.id}`, `${who} has no ${short(i)} connected.`]));
+      if (r.starved && r.limits.length) {
+        const parts = r.limits.filter(i => !r.missing.includes(i)).map(i => {
+          const frac = r.maxOut ? r.T / r.maxOut : 0;
+          return `${short(i)} ${rateStr(r.recv[i])} of ${rateStr(r.need[i] * frac)}${u}`;
+        });
+        if (parts.length) list.push([`node:${n.id}`, `${who} is short: ${parts.join(", ")}. Running at ${Math.round(r.A / r.maxOut * 100)}%.`]);
+      }
+      if (r.down > r.maxOut * (1 + EPS) && r.maxOut > 0) {
+        const needN = Math.ceil((Number(n.count) || 0) * r.down / r.maxOut - EPS);
+        list.push([`node:${n.id}`, `${who} can't keep up: downstream wants ${rateStr(r.down)}${u}, max is ${rateStr(r.maxOut)}${u}. Needs ${needN} buildings.`]);
+      }
+    } else if (n.kind === "source" && r.down > r.maxOut * (1 + EPS)) {
+      list.push([`node:${n.id}`, `${who} gives ${rateStr(r.maxOut)}${u} but the chain wants ${rateStr(r.down)}${u}.`]);
+    }
+  }
+  for (const e of L.edges) {
+    const s = S.E[e.id]; if (!s) continue;
+    const a = nodeLabel(S.byId.get(e.from)), b = nodeLabel(S.byId.get(e.to));
+    if (s.unused) list.push([`edge:${e.id}`, `${b} doesn't use ${short(s.item)}, so the belt from ${a} carries nothing.`]);
+    else if (s.beltLimited) list.push([`edge:${e.id}`, `Belt ${a} → ${b} is full: it needs ${rateStr(s.wanted)}${u}, a ${BELT_NAME[e.belt]} carries ${rateStr(s.cap)}${u}. Use a faster belt or add a second one.`]);
+  }
+  $("pl-issues").innerHTML = list.length
+    ? list.map(([ref, t]) => `<li><button type="button" data-ref="${ref}">${esc(t)}</button></li>`).join("")
+    : `<li class="clear">No problems. Every block gets what it needs.</li>`;
+  const bld = {};
+  L.nodes.filter(n => n.kind === "machine").forEach(n => { const k = MACH[n.mach].name; bld[k] = (bld[k] || 0) + (Number(n.count) || 0); });
+  $("pl-totals").innerHTML = Object.entries(bld).map(([k, v]) => `<span>${esc(k)} <b>${fmt(v, 2)}</b></span>`).join("") || "";
+}
+
+// ---------- inspector ----------
+const itemOptions = (ids, selId) => ids.map(id => `<option value="${id}"${id === selId ? " selected" : ""}>${esc(nm(id))}</option>`).join("");
+const RECIPE_IDS = PICKABLE.filter(id => RECIPES[id]);
+const ALL_IDS = [...PICKABLE, ...Object.keys(ITEMS).filter(id => !PICKABLE.includes(id))];
+
+function renderInspector() {
+  const box = $("pl-insp"), L = cur(), sel = PL.sel;
+  const n = sel && sel.type === "node" ? L.nodes.find(x => x.id === sel.id) : null;
+  const e = sel && sel.type === "edge" ? L.edges.find(x => x.id === sel.id) : null;
+  if (n && n.kind === "machine") {
+    box.innerHTML = `<h3>${sw(n.item)}Machine block</h3>
+      <div class="field"><label for="pf-item">Makes</label><select id="pf-item">${itemOptions(RECIPE_IDS, n.item)}</select></div>
+      <div class="field"><label for="pf-count">Buildings</label><input id="pf-count" type="number" min="0" step="1" value="${n.count}"></div>
+      <div class="field"><label for="pf-mach">Building type</label><select id="pf-mach">${machOptions(n.item).map(k => `<option value="${k}"${k === n.mach ? " selected" : ""}>${MACH[k].name}</option>`).join("")}</select></div>
+      <div class="stats" id="pl-stats"></div>
+      <div class="btns"><button type="button" class="btn primary" data-act="bp">Module blueprint</button><button type="button" class="btn" data-act="delete">Delete block</button></div>`;
+    $("pf-item").addEventListener("change", ev => { n.item = ev.target.value; if (!machOptions(n.item).includes(n.mach)) n.mach = defaultMach(n.item); renderInspector(); renderPlanner(); });
+    $("pf-count").addEventListener("input", ev => { n.count = Math.max(0, Number(ev.target.value) || 0); renderPlanner(); });
+    $("pf-mach").addEventListener("change", ev => { n.mach = ev.target.value; renderPlanner(); });
+  } else if (n && n.kind === "source") {
+    box.innerHTML = `<h3>${sw(n.item)}Source block</h3>
+      <div class="field"><label for="pf-item">Item</label><select id="pf-item">${itemOptions(ALL_IDS, n.item)}</select></div>
+      <div class="field"><label for="pf-rate">Supplies (${unitLbl()})</label><input id="pf-rate" type="number" min="0" step="any" value="${+(n.rate * Number(state.unit)).toFixed(3)}"></div>
+      <div class="stats" id="pl-stats"></div>
+      <div class="btns"><button type="button" class="btn" data-act="delete">Delete block</button></div>`;
+    $("pf-item").addEventListener("change", ev => { n.item = ev.target.value; renderInspector(); renderPlanner(); });
+    $("pf-rate").addEventListener("input", ev => { n.rate = Math.max(0, Number(ev.target.value) || 0) / Number(state.unit); renderPlanner(); });
+  } else if (n) {
+    box.innerHTML = `<h3>Output block</h3><p class="help">Collects finished products, like a chest or the belt to your labs. It accepts as much as the belts bring.</p>
+      <div class="stats" id="pl-stats"></div>
+      <div class="btns"><button type="button" class="btn" data-act="delete">Delete block</button></div>`;
+  } else if (e) {
+    const s = PL.sim.E[e.id];
+    const fluid = s && s.cap === Infinity;
+    box.innerHTML = `<h3>${s ? sw(s.item) : ""}${fluid ? "Pipe" : "Belt"}</h3>
+      ${fluid ? `<p class="help">Fluids go by pipe. Pipe throughput isn't limited here.</p>` : `<div class="field"><label for="pf-belt">Belt type</label><select id="pf-belt">${Object.entries(BELT_NAME).map(([k, v]) => `<option value="${k}"${k === String(e.belt) ? " selected" : ""}>${v} (${fmt(k * Number(state.unit))}${unitLbl()})</option>`).join("")}</select></div>`}
+      <div class="stats" id="pl-stats"></div>
+      <div class="btns"><button type="button" class="btn" data-act="delete">Delete ${fluid ? "pipe" : "belt"}</button></div>`;
+    if (!fluid) $("pf-belt").addEventListener("change", ev => { e.belt = ev.target.value; renderPlanner(); });
+  } else {
+    box.innerHTML = `<h3>How to use</h3><div class="help"><ul>
+      <li><b>Add blocks</b> with the bar above. A machine block is a group of buildings making one item. A source is something you bring in, like a plate belt from your bus.</li>
+      <li><b>Connect</b> by dragging from the amber dot on a block's right edge to another block.</li>
+      <li><b>Move</b> blocks by their title bar. Drag empty space to pan; scroll or use the buttons to zoom.</li>
+      <li><b>Click</b> a block or belt to edit it here. Delete removes it.</li>
+      <li>Belt labels show items per ${state.unit === "60" ? "minute" : "second"} and how full the belt is (both lanes). Red means a problem.</li>
+    </ul></div>`;
+  }
+  renderStats();
+}
+
+function renderStats() {
+  const box = $("pl-stats"); if (!box || !PL.sim || !PL.sel) return;
+  const L = cur(), S = PL.sim, sel = PL.sel, u = unitLbl();
+  const kv = (k, v, warn) => `<div class="kv${warn ? " warn" : ""}"><span>${k}</span><span>${v}</span></div>`;
+  if (sel.type === "node") {
+    const n = L.nodes.find(x => x.id === sel.id), r = S.N[sel.id]; if (!n) return;
+    if (n.kind === "machine") {
+      let h = kv("Busy", `${r.maxOut ? Math.round(r.A / r.maxOut * 100) : 0}%`, r.starved)
+        + kv("Making", `${rateStr(r.A)}${u}`) + kv("Max with this many", `${rateStr(r.maxOut)}${u}`);
+      if (S.outE.get(n.id).length) {
+        h += kv("Downstream wants", `${rateStr(r.down)}${u}`, r.down > r.maxOut * (1 + EPS));
+        const per = r.maxOut / (Number(n.count) || 1);
+        if (per > 0 && r.down > 0) {
+          const needN = Math.ceil(r.down / per - EPS);
+          if (needN !== Number(n.count)) h += `<div class="suggest"><span>${fmt(r.down / per, 2)} buildings would match demand</span><button type="button" class="btn small" data-act="setcount" data-v="${needN}">Use ${needN}</button></div>`;
+        }
+      } else h += kv("Output belt", "not connected");
+      box.innerHTML = h;
+    } else if (n.kind === "source") {
+      let h = kv("Sending", `${rateStr(r.sent)}${u}`) + kv("Chain wants", `${rateStr(r.down)}${u}`, r.down > r.maxOut * (1 + EPS)) + kv("Spare", `${rateStr(Math.max(0, r.maxOut - r.sent))}${u}`);
+      if (r.down > EPS && Math.abs(r.down - r.maxOut) > EPS * Math.max(1, r.down)) h += `<div class="suggest"><span>Match what the chain wants</span><button type="button" class="btn small" data-act="setrate" data-v="${r.down}">Use ${rateStr(r.down)}</button></div>`;
+      box.innerHTML = h;
+    } else {
+      box.innerHTML = Object.entries(r.recv).filter(([, v]) => v > EPS).map(([i, v]) => kv(esc(short(i)), `${rateStr(v)}${u}`)).join("") || kv("Receiving", "nothing yet");
+    }
+  } else {
+    const e = L.edges.find(x => x.id === sel.id), s = S.E[sel.id]; if (!e || !s) return;
+    let h = kv("From", esc(nodeLabel(S.byId.get(e.from)))) + kv("To", esc(nodeLabel(S.byId.get(e.to))))
+      + kv("Carrying", s.unused ? "nothing (not used)" : `${rateStr(s.flow)}${u}`, s.unused);
+    if (s.cap !== Infinity) {
+      h += kv("Belt capacity", `${rateStr(s.cap)}${u}`) + kv("Full", `${Math.round(s.flow / s.cap * 100)}%`, s.beltLimited) + kv("Lanes used", fmt(s.flow / (s.cap / 2), 2));
+      if (s.beltLimited) h += kv("Needs", `${rateStr(s.wanted)}${u}`, true);
+    }
+    box.innerHTML = h;
+  }
+}
+
+function select(s) {
+  PL.sel = s;
+  document.querySelectorAll("#pl-nodes .bn").forEach(el => el.classList.toggle("sel", isSel("node", el.dataset.node)));
+  drawEdges();
+  renderInspector();
+}
+function deleteSel() {
+  const L = cur(), s = PL.sel; if (!s) return;
+  if (s.type === "node") { L.nodes = L.nodes.filter(n => n.id !== s.id); L.edges = L.edges.filter(e => e.from !== s.id && e.to !== s.id); }
+  else L.edges = L.edges.filter(e => e.id !== s.id);
+  PL.sel = null; renderPlanner(); renderInspector();
+}
+
+// ---------- view helpers ----------
+function toWorld(ev) { const r = $("pl-canvas").getBoundingClientRect(), v = cur().view; return { x: (ev.clientX - r.left - v.x) / v.z, y: (ev.clientY - r.top - v.y) / v.z }; }
+function zoomAt(sx, sy, k) {
+  const v = cur().view, z = Math.min(2, Math.max(0.2, v.z * k));
+  const wx = (sx - v.x) / v.z, wy = (sy - v.y) / v.z;
+  v.z = z; v.x = sx - wx * z; v.y = sy - wy * z; applyView(); plSaveSoon();
+}
+function zoomCenter(k) { const c = $("pl-canvas"); zoomAt(c.clientWidth / 2, c.clientHeight / 2, k); }
+function fitView() {
+  const L = cur(), c = $("pl-canvas"), v = L.view;
+  if (!L.nodes.length || !c.clientWidth) { v.x = 40; v.y = 40; v.z = 1; applyView(); return; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  L.nodes.forEach(n => {
+    const el = document.querySelector(`[data-node="${n.id}"]`), h = el ? el.offsetHeight : 120;
+    x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + NODE_W); y1 = Math.max(y1, n.y + h);
+  });
+  const pad = 40, z = Math.min(1.2, Math.max(0.6, Math.min((c.clientWidth - pad * 2) / (x1 - x0), (c.clientHeight - pad * 2) / (y1 - y0))));
+  v.z = z; v.x = Math.max(pad, (c.clientWidth - (x1 - x0) * z) / 2) - x0 * z; v.y = Math.max(pad, (c.clientHeight - (y1 - y0) * z) / 2) - y0 * z;
+  applyView(); plSave();
+}
+let saveTimer = null;
+const plSaveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(plSave, 300); };
+const snap = x => Math.round(x / GRID) * GRID;
+
+// ---------- canvas interaction ----------
+let drag = null;
+const canvasEl = $("pl-canvas");
+canvasEl.addEventListener("pointerdown", ev => {
+  if (ev.button !== 0) return;
+  const L = cur(), pt = toWorld(ev);
+  const port = ev.target.closest(".port.out"), nodeEl = ev.target.closest("[data-node]"), edgeEl = ev.target.closest("[data-edge]");
+  if (ev.target.closest(".pl-zoom")) return;
+  if (port) {
+    drag = { type: "connect", from: port.dataset.port };
+    PL.temp = { from: port.dataset.port, x: pt.x, y: pt.y };
+  } else if (nodeEl) {
+    const n = L.nodes.find(x => x.id === nodeEl.dataset.node);
+    drag = { type: "node", n, el: nodeEl, ox: pt.x - n.x, oy: pt.y - n.y, sx: ev.clientX, sy: ev.clientY, moved: false };
+    if (!isSel("node", n.id)) select({ type: "node", id: n.id });
+  } else if (edgeEl) {
+    select({ type: "edge", id: edgeEl.dataset.edge }); return;
+  } else {
+    drag = { type: "pan", sx: ev.clientX, sy: ev.clientY, vx: L.view.x, vy: L.view.y, moved: false };
+    canvasEl.classList.add("panning");
+  }
+  canvasEl.setPointerCapture(ev.pointerId);
+  ev.preventDefault();
+});
+canvasEl.addEventListener("pointermove", ev => {
+  if (!drag) return;
+  const pt = toWorld(ev);
+  if (drag.type === "connect") { PL.temp.x = pt.x; PL.temp.y = pt.y; drawEdges(); }
+  else if (drag.type === "node") {
+    if (!drag.moved && Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) < 3) return;
+    drag.moved = true;
+    drag.n.x = snap(pt.x - drag.ox); drag.n.y = snap(pt.y - drag.oy);
+    drag.el.style.left = drag.n.x + "px"; drag.el.style.top = drag.n.y + "px";
+    drawEdges();
+  } else if (drag.type === "pan") {
+    const v = cur().view, dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    v.x = drag.vx + dx; v.y = drag.vy + dy; applyView();
+  }
+});
+function endDrag(ev) {
+  if (!drag) return;
+  const d = drag; drag = null; canvasEl.classList.remove("panning");
+  if (d.type === "connect") {
+    PL.temp = null;
+    const hit = ev && document.elementFromPoint(ev.clientX, ev.clientY);
+    const tEl = hit && hit.closest("[data-node]");
+    const L = cur(), to = tEl && L.nodes.find(x => x.id === tEl.dataset.node);
+    if (to && to.id !== d.from && to.kind !== "source" && !L.edges.some(e => e.from === d.from && e.to === to.id)) {
+      const e = { id: uid(), from: d.from, to: to.id, belt: state.belt };
+      L.edges.push(e); PL.sel = { type: "edge", id: e.id };
+      renderPlanner(); renderInspector();
+    } else drawEdges();
+  } else if (d.type === "node") { if (d.moved) plSave(); }
+  else if (d.type === "pan") { if (!d.moved) select(null); else plSaveSoon(); }
+}
+canvasEl.addEventListener("pointerup", endDrag);
+canvasEl.addEventListener("pointercancel", () => { PL.temp = null; drag = null; canvasEl.classList.remove("panning"); drawEdges(); });
+canvasEl.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = canvasEl.getBoundingClientRect();
+  zoomAt(ev.clientX - r.left, ev.clientY - r.top, Math.exp(-ev.deltaY * 0.0015));
+}, { passive: false });
+$("pl-zin").addEventListener("click", () => zoomCenter(1.2));
+$("pl-zout").addEventListener("click", () => zoomCenter(1 / 1.2));
+$("pl-fit").addEventListener("click", fitView);
+
+$("pl-insp").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-act]"); if (!b) return;
+  const L = cur(), n = PL.sel && PL.sel.type === "node" ? L.nodes.find(x => x.id === PL.sel.id) : null;
+  if (b.dataset.act === "delete") deleteSel();
+  else if (b.dataset.act === "bp" && n) { bpSettings().scope = n.id; setView("bp"); }
+  else if (b.dataset.act === "setcount" && n) { n.count = Number(b.dataset.v); renderInspector(); renderPlanner(); }
+  else if (b.dataset.act === "setrate" && n) { n.rate = Number(b.dataset.v); renderInspector(); renderPlanner(); }
+});
+$("pl-issues").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-ref]"); if (!b || !b.dataset.ref) return;
+  const [type, id] = b.dataset.ref.split(":");
+  select({ type, id });
+  $("pl-canvas").scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
+document.addEventListener("keydown", ev => {
+  if ($("view-plan").hidden || ev.target.closest("input, select, textarea")) return;
+  if ((ev.key === "Delete" || ev.key === "Backspace") && PL.sel) { ev.preventDefault(); deleteSel(); }
+  else if (ev.key === "Escape") select(null);
+});
+
+// ---------- toolbar ----------
+$("pl-add-item").innerHTML = groups.map(([g, f]) => `<optgroup label="${g}">${PICKABLE.filter(f).map(id => `<option value="${id}">${nm(id)}</option>`).join("")}</optgroup>`).join("")
+  + `<optgroup label="Raw and fluids">${Object.keys(ITEMS).filter(id => !PICKABLE.includes(id)).map(id => `<option value="${id}">${nm(id)}</option>`).join("")}</optgroup>`;
+const syncAddBtns = () => { $("pl-add-machine").disabled = !RECIPES[$("pl-add-item").value]; };
+$("pl-add-item").addEventListener("change", syncAddBtns);
+function addNode(n) {
+  const L = cur(), c = $("pl-canvas"), v = L.view, k = L.nodes.length % 6;
+  n.x = snap((c.clientWidth / 2 - v.x) / v.z - NODE_W / 2 + k * 24);
+  n.y = snap((c.clientHeight / 2 - v.y) / v.z - 60 + k * 24);
+  n.id = uid(); L.nodes.push(n); PL.sel = { type: "node", id: n.id };
+  renderPlanner(); renderInspector();
+}
+$("pl-add-machine").addEventListener("click", () => { const item = $("pl-add-item").value; if (RECIPES[item]) addNode({ kind: "machine", item, count: 1, mach: defaultMach(item) }); });
+$("pl-add-source").addEventListener("click", () => addNode({ kind: "source", item: $("pl-add-item").value, rate: 15 / 2 }));
+$("pl-add-output").addEventListener("click", () => addNode({ kind: "output", item: null }));
+
+function switchLayout(id) { PL.current = id; PL.sel = null; renderLayoutBar(); showLayout(); }
+function showLayout() {
+  renderPlanner(); renderInspector();
+  const L = cur(); if (L.needsFit && !$("view-plan").hidden) { fitView(); delete L.needsFit; plSave(); }
+}
+$("pl-layout").addEventListener("change", ev => switchLayout(ev.target.value));
+$("pl-name").addEventListener("input", ev => {
+  cur().name = ev.target.value;
+  const opt = $("pl-layout").querySelector(`option[value="${PL.current}"]`); if (opt) opt.textContent = ev.target.value || "Untitled";
+  plSaveSoon();
+});
+$("pl-new").addEventListener("click", () => { addLayout(newLayout(`Layout ${PL.order.length + 1}`)); renderLayoutBar(); showLayout(); $("pl-name").select(); });
+$("pl-dup").addEventListener("click", () => {
+  const src = cur(), map = {}, L = newLayout(src.name + " (copy)");
+  L.nodes = src.nodes.map(n => { const c = { ...n, id: uid() }; map[n.id] = c.id; return c; });
+  L.edges = src.edges.filter(e => map[e.from] && map[e.to]).map(e => ({ ...e, id: uid(), from: map[e.from], to: map[e.to] }));
+  L.view = { ...src.view }; delete L.needsFit;
+  addLayout(L); renderLayoutBar(); showLayout();
+});
+let delArmed = null;
+$("pl-del").addEventListener("click", ev => {
+  const b = ev.currentTarget;
+  if (!delArmed) { b.classList.add("armed"); b.textContent = "Confirm delete"; delArmed = setTimeout(() => { b.classList.remove("armed"); b.textContent = "Delete"; delArmed = null; }, 4000); return; }
+  clearTimeout(delArmed); delArmed = null; b.classList.remove("armed"); b.textContent = "Delete";
+  const id = PL.current; delete PL.layouts[id]; PL.order = PL.order.filter(x => x !== id);
+  if (!PL.order.length) addLayout(newLayout("Layout 1"));
+  PL.current = PL.order[0]; PL.sel = null; renderLayoutBar(); showLayout();
+});
+
+$("to-planner").addEventListener("click", () => {
+  const label = state.mode === "buildings" ? `${state.amount} buildings` : `${state.amount}/min`;
+  addLayout(layoutFromCalc(`${short(state.item)} · ${label}`));
+  renderLayoutBar(); setView("plan");
+});
+
+
+// ================= BLUEPRINT (tile layout) =================
+// Tile layout generator (planLayout) adapted from a friend's version of this planner.
+Object.assign(MACH.am1, { ent: "assembling-machine-1", size: 3 });
+Object.assign(MACH.am2, { ent: "assembling-machine-2", size: 3 });
+Object.assign(MACH.am3, { ent: "assembling-machine-3", size: 3 });
+Object.assign(MACH.stone, { ent: "stone-furnace", size: 2, burner: true });
+Object.assign(MACH.steel, { ent: "steel-furnace", size: 2, burner: true });
+Object.assign(MACH.electric, { ent: "electric-furnace", size: 3 });
+Object.assign(MACH.chem, { ent: "chemical-plant", size: 3 });
+const BELT_TIERS = {
+  "15": { name: "Transport belt", belt: "transport-belt", ug: "underground-belt", sp: "splitter", U: 4, tok: "--belt-1" },
+  "30": { name: "Fast belt", belt: "fast-transport-belt", ug: "fast-underground-belt", sp: "fast-splitter", U: 6, tok: "--belt-2" },
+  "45": { name: "Express belt", belt: "express-transport-belt", ug: "express-underground-belt", sp: "express-splitter", U: 8, tok: "--belt-3" },
+  "60": { name: "Turbo belt", belt: "turbo-transport-belt", ug: "turbo-underground-belt", sp: "turbo-splitter", U: 10, tok: "--belt-4" },
+};
+const INSERTERS = {
+  basic: { name: "Inserter", ent: "inserter", cap: 0.83, tok: "--ins-basic" },
+  fast: { name: "Fast inserter", ent: "fast-inserter", cap: 2.31, tok: "--ins-fast" },
+  bulk: { name: "Bulk inserter", ent: "bulk-inserter", cap: 4.6, tok: "--ins-bulk" },
+};
+const LONG = { name: "Long-handed inserter", ent: "long-handed-inserter", cap: 1.15, tok: "--ins-long" };
+const FUEL = 0.09 / 4; // coal per second for one burner furnace (90 kW, coal 4 MJ)
+
+function planLayout(sol, st) {
+  const tier = BELT_TIERS[st.belt], laneCap = Number(st.belt) / 2, U = tier.U;
+  const insT = INSERTERS[st.ins] || INSERTERS.fast;
+  const warn = [];
+  const recs = [...sol.build].sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : 1));
+  const made = new Set(recs.map(b => b.id));
+  const maxRow = Math.max(1, Math.floor(Number(st.maxRow) || 12));
+  const plans = [];
+  for (const b of recs) {
+    const r = RECIPES[b.id], m = b.machine, w = m.size;
+    const u = b.count ? b.exact / b.count : 0;
+    const cps = m.speed / r.time * u; // crafts per second per machine at the planned rate
+    const ings = Object.entries(r.ins).map(([id, q]) => ({ id, per: q * cps }));
+    if (r.kind === "smelt" && m.burner) ings.push({ id: "coal", per: FUEL * u, fuel: true });
+    const solids = ings.filter(i => !isFluid(i.id)).sort((a, c) => c.per - a.per);
+    const fluids = ings.filter(i => isFluid(i.id));
+    const fluidOut = isFluid(b.id);
+    const outPer = r.out * cps;
+    if (solids.length > 4) warn.push(`${nm(b.id)} has more than four solid ingredients; only four are belted.`);
+    let cap = maxRow;
+    for (const s of solids) cap = Math.min(cap, Math.floor(laneCap / s.per + 1e-9));
+    if (!fluidOut) cap = Math.min(cap, Math.floor(laneCap / outPer + 1e-9));
+    if (cap < 1) { cap = 1; warn.push(`One ${nm(b.id)} machine needs more than a full belt lane. Pick a faster belt.`); }
+    const nRows = Math.max(1, Math.ceil(b.count / cap));
+    const A = solids.slice(0, 2), C = solids.slice(2, 4);
+    const loadA = A.reduce((s, x) => s + x.per, 0), loadC = C.reduce((s, x) => s + x.per, 0);
+    const twoA = w === 3 && C.length === 0 && loadA > insT.cap;
+    const twoOut = w === 3 && !fluidOut && outPer > insT.cap;
+    const rowWarn = [];
+    if (loadA > insT.cap * (twoA ? 2 : 1)) rowWarn.push(`Input inserters are too slow (${loadA.toFixed(2)}/s per machine). Use a faster inserter.`);
+    if (loadC > LONG.cap) rowWarn.push(`Long-handed inserter can't keep up (${loadC.toFixed(2)}/s per machine).`);
+    if (!fluidOut && outPer > insT.cap * (twoOut ? 2 : 1)) rowWarn.push(`Output inserters are too slow (${outPer.toFixed(2)}/s per machine).`);
+    let left = b.count;
+    for (let i = 0; i < nRows; i++) {
+      const n = Math.ceil(left / (nRows - i)); left -= n;
+      plans.push({ id: b.id, b, n, w, ent: m.ent, mname: m.name, recipe: r.kind === "smelt" ? null : b.id, A, C, fluids, fluidOut, outPer, part: i, parts: nRows, loadA, loadC, twoA, twoOut, rowWarn });
+    }
+  }
+
+  // bus columns: raw inputs first, then one per solid product in row order
+  const cols = [], colOf = new Map();
+  const addCol = (item, raw) => { const c = { item, k: cols.length, x: 3 * cols.length, raw, start: raw ? 0 : null, uses: [], rate: 0 }; cols.push(c); colOf.set(item, c); return c; };
+  for (const p of plans) for (const s of [...p.A, ...p.C]) if (!made.has(s.id) && !colOf.has(s.id)) addCol(s.id, true);
+  for (const b of recs) if (!isFluid(b.id)) addCol(b.id, false);
+  const xb = 3 * cols.length, jxA = xb + 2, rowX0 = jxA + 2;
+
+  // row geometry
+  let y = 2;
+  const rows = [];
+  for (const p of plans) {
+    const T = y, hasC = p.C.length > 0, lines = [];
+    let yA = null, yC = null, yI;
+    if (hasC) {
+      yC = T + 5; yA = T + 6; yI = T + 7;
+      if (p.C[1]) lines.push({ item: p.C[1].id, y: T + 1, kind: "C-s" });
+      lines.push({ item: p.C[0].id, y: T + 3, kind: "C-n" });
+      lines.push({ item: p.A[0].id, y: yC, kind: "A-n" });
+      if (p.A[1]) lines.push({ item: p.A[1].id, y: yI, kind: "A-s" });
+    } else if (p.A.length) {
+      yA = T + 2; yI = T + 3;
+      lines.push({ item: p.A[0].id, y: T + 1, kind: "A-n" });
+      if (p.A[1]) lines.push({ item: p.A[1].id, y: yI, kind: "A-s" });
+    } else yI = T + 1;
+    const yM = yI + 1, h = p.w;
+    let next = yM + h, yO = null, yB = null;
+    if (!p.fluidOut) { yO = next; yB = next + 1; next += 2; }
+    const pipes = [];
+    for (const f of p.fluids) pipes.push({ item: f.id, y: next++, dir: "in" });
+    if (p.fluidOut) pipes.push({ item: p.id, y: next++, dir: "out" });
+    const rowEnd = rowX0 + p.n * p.w - 1, jxC = rowEnd + 2;
+    rows.push({ ...p, T, yA, yC, yI, yM, yO, yB, pipes, lines, hasC, rowEnd, jxC, bottom: next - 1 });
+    for (const L of lines) colOf.get(L.item).uses.push(L.y);
+    if (!p.fluidOut && p.part === 0) colOf.get(p.id).start = yB;
+    y = next + 1;
+  }
+  const maxY = y;
+  for (const c of cols) c.uses.sort((a, b) => a - b);
+  for (const [id, v] of sol.inputs) if (colOf.has(id)) colOf.get(id).rate = v.rate;
+  for (const b of recs) if (colOf.has(b.id)) colOf.get(b.id).rate = b.rate;
+  for (const c of cols) if (c.rate > Number(st.belt) + 1e-9) warn.push(`${nm(c.item)} needs ${(c.rate / Number(st.belt)).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`);
+
+  // placement
+  const G = new Map(), ents = [], pairs = [];
+  let conflicts = 0;
+  const key = (x, yy) => x + "," + yy;
+  const put = e => {
+    e.w = e.w || 1; e.h = e.h || 1;
+    for (let dx = 0; dx < e.w; dx++) for (let dy = 0; dy < e.h; dy++) { const k = key(e.x + dx, e.y + dy); if (G.has(k)) conflicts++; G.set(k, e); }
+    ents.push(e); return e;
+  };
+  const belt = (x, yy, dir, item, lanes) => put({ t: "belt", x, y: yy, dir, item, lanes });
+
+  for (const r of rows) {
+    const w = r.w;
+    for (let i = 0; i < r.n; i++) {
+      const mx = rowX0 + i * w;
+      put({ t: "machine", x: mx, y: r.yM, w, h: w, item: r.id, ent: r.ent, mname: r.mname, recipe: r.recipe });
+      if (w === 3) {
+        if (r.A.length) put({ t: "ins", x: mx, y: r.yI, ins: insT });
+        if (r.hasC) put({ t: "ins", x: mx + 1, y: r.yI, ins: LONG, long: true });
+        else if (r.twoA) put({ t: "ins", x: mx + 1, y: r.yI, ins: insT });
+        put({ t: "pole", x: mx + 2, y: r.yI });
+        if (!r.fluidOut) {
+          put({ t: "ins", x: mx, y: r.yO, ins: insT, out: true });
+          if (r.twoOut) put({ t: "ins", x: mx + 1, y: r.yO, ins: insT, out: true });
+          put({ t: "pole", x: mx + 2, y: r.yO });
+        }
+      } else {
+        if (r.A.length) put({ t: "ins", x: mx, y: r.yI, ins: insT });
+        put({ t: "pole", x: mx + 1, y: r.yI });
+        if (!r.fluidOut) { put({ t: "ins", x: mx, y: r.yO, ins: insT, out: true }); put({ t: "pole", x: mx + 1, y: r.yO }); }
+      }
+    }
+    if (r.yA !== null) for (let x = jxA; x <= r.rowEnd; x++) belt(x, r.yA, "E", null, { n: r.A[0] && r.A[0].id, s: r.A[1] && r.A[1].id });
+    if (r.hasC) for (let x = r.jxC; x >= rowX0; x--) belt(x, r.yC, "W", null, { n: r.C[0].id, s: r.C[1] && r.C[1].id });
+    if (!r.fluidOut) {
+      const c = colOf.get(r.id);
+      for (let x = r.rowEnd; x > c.x; x--) belt(x, r.yB, "W", r.id);
+      if (r.part === 0) belt(c.x, r.yB, "S", r.id);
+    }
+    for (const p of r.pipes) for (let x = rowX0 - 1; x <= r.rowEnd; x++) put({ t: "pipe", x, y: p.y, item: p.item, pdir: p.dir });
+  }
+
+  for (const c of cols) {
+    const last = c.uses.length ? c.uses[c.uses.length - 1] : null;
+    const splitYs = new Set(c.uses.slice(0, -1).map(u => u - 1));
+    const from = c.raw ? 0 : c.start + 1;
+    const to = last !== null ? last - 1 : maxY;
+    c.end = last !== null ? last : maxY;
+    for (let yy = from; yy <= to; yy++) {
+      if (splitYs.has(yy)) put({ t: "splitter", x: c.x, y: yy, w: 2, h: 1, dir: "S", item: c.item });
+      else belt(c.x, yy, "S", c.item);
+    }
+    if (last !== null) belt(c.x, last, "E", c.item);
+  }
+
+  for (const r of rows) for (const L of r.lines) {
+    const c = colOf.get(L.item), yy = L.y, item = L.item;
+    belt(c.x + 1, yy, "E", item);
+    const tx = L.kind === "C-n" ? r.jxC : L.kind === "C-s" ? r.jxC + 1 : jxA;
+    const obs = [];
+    for (let x = c.x + 2; x < xb; x++) if (G.has(key(x, yy))) obs.push(x);
+    let x = c.x + 2;
+    if (obs.length) {
+      const f = obs[obs.length - 1] + 1;
+      let ent = x;
+      put({ t: "ug", x: ent, y: yy, dir: "E", io: "input", item });
+      for (let guard = 0; guard < 200; guard++) {
+        if (f - ent - 1 <= U) { put({ t: "ug", x: f, y: yy, dir: "E", io: "output", item }); pairs.push({ y: yy, a: ent, b: f }); break; }
+        let cand = null;
+        for (let cc = ent + 1 + U; cc > ent; cc--) if (cc % 3 === 1 && cc + 1 < f && !G.has(key(cc, yy)) && !G.has(key(cc + 1, yy))) { cand = cc; break; }
+        if (cand === null) { warn.push(`Couldn't route ${nm(item)} across the bus at row ${yy}.`); break; }
+        put({ t: "ug", x: cand, y: yy, dir: "E", io: "output", item }); pairs.push({ y: yy, a: ent, b: cand });
+        put({ t: "ug", x: cand + 1, y: yy, dir: "E", io: "input", item }); ent = cand + 1;
+      }
+      x = f + 1;
+    }
+    for (; x < tx; x++) belt(x, yy, "E", item);
+    if (L.kind === "A-n") belt(jxA, yy, "S", item);
+    else if (L.kind === "A-s") belt(jxA, yy, "N", item);
+    else if (L.kind === "C-n") { belt(r.jxC, yy, "S", item); belt(r.jxC, yy + 1, "S", item); }
+    else { for (let k = yy; k < r.yA; k++) belt(r.jxC + 1, k, "S", item); belt(r.jxC + 1, r.yA, "W", item); belt(r.jxC, r.yA, "N", item); }
+  }
+
+  let W = 0; for (const e of ents) W = Math.max(W, e.x + e.w);
+  const counts = { belt: 0, ug: 0, splitter: 0, ins: 0, long: 0, pole: 0, machine: 0, pipe: 0 };
+  for (const e of ents) { if (e.t === "ins" && e.long) counts.long++; else counts[e.t]++; }
+  return { ents, G, cols, rows, pairs, W, H: maxY + 1, xb, jxA, rowX0, warn, conflicts, counts, tier, insT };
+}
+
+const DIR16 = { N: 0, E: 4, S: 8, W: 12 };
+function blueprintObject(LY, icon, label) {
+  const out = []; let n = 1;
+  for (const e of LY.ents) {
+    const pos = { x: e.x + e.w / 2, y: e.y + e.h / 2 };
+    if (e.t === "belt") out.push({ entity_number: n++, name: LY.tier.belt, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ug") out.push({ entity_number: n++, name: LY.tier.ug, position: pos, direction: DIR16[e.dir], type: e.io });
+    else if (e.t === "splitter") out.push({ entity_number: n++, name: LY.tier.sp, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ins") out.push({ entity_number: n++, name: e.ins.ent, position: pos, direction: 0 });
+    else if (e.t === "pole") out.push({ entity_number: n++, name: "small-electric-pole", position: pos });
+    else if (e.t === "machine") { const o = { entity_number: n++, name: e.ent, position: pos }; if (e.recipe) o.recipe = e.recipe; out.push(o); }
+  }
+  const bp = { entities: out, item: "blueprint", label: label.slice(0, 100), version: 562949953421312 };
+  if (icon) bp.icons = [{ signal: { type: "item", name: icon }, index: 1 }];
+  return { blueprint: bp };
+}
+
+// ---------- module graph → layout input ----------
+function bpSettings() {
+  const L = cur();
+  L.bp = Object.assign({ scope: "all", belt: state.belt, ins: "fast", maxRow: 12 }, L.bp || {});
+  return L.bp;
+}
+function graphDepth(S) {
+  const memo = new Map(), visiting = new Set();
+  const d = id => {
+    if (memo.has(id)) return memo.get(id);
+    if (visiting.has(id)) return 0;
+    visiting.add(id);
+    let v = 0;
+    for (const e of S.outE.get(id)) { const t = S.byId.get(e.to); if (t && t.kind === "machine") v = Math.max(v, d(t.id) + 1); }
+    visiting.delete(id); memo.set(id, v); return v;
+  };
+  return d;
+}
+function bpEntry(n, S, depth) {
+  const r = S.N[n.id], m = MACH[n.mach], cnt = Number(n.count) || 0;
+  const T = r.T > 0 ? r.T : r.maxOut;
+  return { id: n.item, rate: T, depth, exact: r.maxOut > 0 ? cnt * T / r.maxOut : 0, count: Math.ceil(cnt - 1e-9),
+    machine: { name: m.name, speed: m.speed, ent: m.ent, size: m.size, burner: !!m.burner }, mach: n.mach };
+}
+function bpSolution() {
+  const L = cur(), S = simulate(L), bp = bpSettings(), depth = graphDepth(S), warn = [];
+  const inputs = new Map();
+  const add = (id, rate) => { const c = inputs.get(id) || { rate: 0 }; c.rate += rate; inputs.set(id, c); };
+  if (bp.scope !== "all") {
+    const n = L.nodes.find(x => x.id === bp.scope && x.kind === "machine");
+    if (n) {
+      const e = bpEntry(n, S, 0), r = S.N[n.id], frac = r.maxOut ? e.rate / r.maxOut : 0;
+      for (const [i, nd] of Object.entries(r.need)) add(i, nd * frac);
+      return { build: e.count ? [e] : [], inputs, warn, title: `Module · ${nodeLabel(n)}`, icon: n.item, final: n.item, label: `${short(n.item)} module` };
+    }
+    bp.scope = "all";
+  }
+  const byItem = new Map();
+  for (const n of L.nodes.filter(x => x.kind === "machine")) {
+    const e = bpEntry(n, S, depth(n.id)), c = byItem.get(e.id);
+    if (!c) { byItem.set(e.id, e); continue; }
+    if (c.mach !== e.mach) warn.push(`${short(e.id)} is made in more than one building type. The whole-chain layout uses ${c.machine.name} for all of them.`);
+    c.rate += e.rate; c.exact += e.exact; c.count += e.count; c.depth = Math.max(c.depth, e.depth);
+  }
+  for (const n of L.nodes.filter(x => x.kind === "source")) add(n.item, S.N[n.id].sent);
+  const build = [...byItem.values()].filter(b => b.count > 0);
+  const fin = build.filter(b => b.depth === 0).sort((a, b) => b.rate - a.rate)[0];
+  return { build, inputs, warn, title: `Whole chain · ${L.name}`, icon: fin && fin.id, final: fin && fin.id, label: L.name || "Chain" };
+}
+
+// ---------- render ----------
+const ITEM_IDS = Object.keys(ITEMS);
+const getVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let ITEM_L = "62%";
+const itemColor = id => { const i = ITEM_IDS.indexOf(id); return `hsl(${(i < 0 ? 0 : (i * 137.508 + 20) % 360).toFixed(0)} 62% ${ITEM_L})`; };
+let BP = null;
+
+function renderBpScope() {
+  const L = cur(), bp = bpSettings();
+  const ms = L.nodes.filter(n => n.kind === "machine");
+  $("bp-scope").innerHTML = `<option value="all">Whole chain (main bus)</option>` + (ms.length ? `<optgroup label="Single module">${ms.map(n => `<option value="${n.id}">${esc(nodeLabel(n))} · ${MACH[n.mach].short}</option>`).join("")}</optgroup>` : "");
+  if (bp.scope !== "all" && !ms.some(n => n.id === bp.scope)) bp.scope = "all";
+  $("bp-scope").value = bp.scope; $("bp-belt").value = bp.belt; $("bp-ins").value = bp.ins; $("bp-maxrow").value = bp.maxRow;
+}
+function renderBlueprint() {
+  ITEM_L = getVar("--item-l") || "62%";
+  renderBpScope();
+  const bp = bpSettings(), sol = bpSolution();
+  const lay = planLayout(sol, { belt: bp.belt, ins: bp.ins, maxRow: bp.maxRow });
+  const L = cur(), editKey = bp.scope !== "all" ? bp.scope : null;
+  BP = { sol, lay, edit: editKey && L.edits && L.edits[editKey] || null };
+  if (ED.undoKey !== editKey) { ED.undo = []; ED.sel = null; ED.undoKey = editKey; }
+  $("bp-edit").hidden = !editKey;
+  $("bp-edit").textContent = BP.edit ? "Discard edits" : "Edit layout";
+  $("bp-edit").classList.toggle("primary", !BP.edit);
+  $("ed-bar").hidden = !BP.edit;
+  $("bp-title").textContent = sol.title + (BP.edit ? " · edited" : "");
+  if (BP.edit) {
+    edRecalc();
+    const n = L.nodes.find(x => x.id === editKey), have = BP.edit.ents.filter(e => e.t === "machine");
+    const w = [];
+    if (n && have.length !== Math.ceil(Number(n.count) || 0)) w.push(`This module now has ${Math.ceil(Number(n.count) || 0)} buildings but the edited layout has ${have.length}. Discard edits to start from a fresh layout, or set the count back on the Modules tab.`);
+    if (n && have.some(e => e.item !== n.item)) w.push(`This module now makes ${nm(n.item)}, but the edited layout was made for ${nm(have[0].item)}. Discard edits to start over.`);
+    $("bp-warn").innerHTML = w.map(t => `<div class="warnbox">${esc(t)}</div>`).join("");
+    $("legend").innerHTML = "";
+    $("bpbox").hidden = true;
+    bpView.fitted = false; edRefresh(); plSave(); return;
+  }
+  const w = [...sol.warn, ...lay.warn];
+  if (lay.conflicts) w.push(`${lay.conflicts} tiles overlap in the generated layout. Check the overlapping area before building.`);
+  $("bp-warn").innerHTML = [...new Set(w)].map(t => `<div class="warnbox">${esc(t)}</div>`).join("");
+  const c = lay.counts;
+  $("bp-totals").innerHTML = sol.build.length
+    ? `<span>Footprint <b>${lay.W}×${lay.H}</b></span><span>Machines <b>${c.machine}</b></span><span>Belts <b>${c.belt}</b></span><span>Undergrounds <b>${c.ug}</b></span><span>Splitters <b>${c.splitter}</b></span><span>Inserters <b>${c.ins + c.long}</b></span><span>Poles <b>${c.pole}</b></span>` : "";
+  renderRowList(); renderLegend();
+  $("bpbox").hidden = true;
+  bpView.fitted = false; bpDraw(); plSave();
+}
+function laneHtml(list, label) {
+  if (!list.length) return "";
+  return `<span class="lane">${label}: ${list.map(s => `<span class="dot" style="background:${itemColor(s.id)}"></span>${esc(nm(s.id))}`).join(" + ")}</span>`;
+}
+function renderRowList() {
+  const LY = BP.lay;
+  if (!LY.rows.length) { $("rowlist").innerHTML = `<p class="empty">No machine modules to lay out. Add some on the Modules tab.</p>`; return; }
+  $("rowlist").innerHTML = LY.rows.map((r, i) => `
+    <button type="button" class="rowcard" data-row="${i}">
+      <span class="rt">${sw(r.id)}${esc(nm(r.id))}${r.parts > 1 ? ` <span class="sub">part ${r.part + 1}/${r.parts}</span>` : ""}</span>
+      <span class="m">${r.n}× ${esc(r.mname)} · ${rateStr(r.outPer * r.n)}${unitLbl()}</span>
+      ${laneHtml(r.A, "Belt")}${laneHtml(r.C, "Far belt")}
+      ${r.fluids.length || r.fluidOut ? `<span class="lane">Pipe: ${[...r.fluids.map(f => nm(f.id)), ...(r.fluidOut ? [nm(r.id) + " out"] : [])].map(esc).join(", ")}</span>` : ""}
+      ${r.rowWarn.map(t => `<span class="w">${esc(t)}</span>`).join("")}
+    </button>`).join("");
+}
+function renderLegend() {
+  const t = BP.lay.tier, it = BP.lay.insT;
+  $("legend").innerHTML = [
+    `<span><i class="lg" style="background:var(${t.tok})"></i>${t.name}</span>`,
+    `<span><i class="lg" style="background:var(${t.tok});opacity:.55;outline:2px solid var(${t.tok})"></i>Underground pair</span>`,
+    `<span><i class="lg" style="background:var(--machine);border-color:var(--machine-line)"></i>Machine</span>`,
+    `<span><i class="lg" style="background:var(${it.tok})"></i>${it.name}</span>`,
+    `<span><i class="lg" style="background:var(--ins-long)"></i>Long-handed inserter</span>`,
+    `<span><i class="lg" style="background:var(--pole);border-radius:50%"></i>Small pole</span>`,
+    `<span><i class="lg" style="background:var(--pipe)"></i>Pipe guide</span>`,
+    `<span>Arrow colour = item on that belt or lane</span>`,
+  ].join("");
+}
+
+// ---------- canvas ----------
+const TS = 20, PAD_TOP = 7, PAD_RIGHT = 16;
+const bpView = { z: 1, x: 0, y: 0, fitted: false };
+let COLR = {};
+function bpFit() {
+  const vp = $("vp"), w = vp.clientWidth, h = vp.clientHeight, LY = BP.lay;
+  const ww = (LY.W + PAD_RIGHT + 1) * TS, wh = (LY.H + PAD_TOP + 1) * TS;
+  bpView.z = Math.max(0.15, Math.min(1.6, Math.min(w / ww, h / wh)));
+  bpView.x = (w - ww * bpView.z) / 2 + TS * bpView.z * 0.5;
+  bpView.y = Math.max(PAD_TOP * TS * bpView.z, (h - wh * bpView.z) / 2 + PAD_TOP * TS * bpView.z);
+  bpView.fitted = true;
+}
+function chevron(ctx, cx, cy, dir, s, color) {
+  const a = { N: -Math.PI / 2, E: 0, S: Math.PI / 2, W: Math.PI }[dir];
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+  ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.6); ctx.lineTo(s * 0.35, 0); ctx.lineTo(-s * 0.45, s * 0.6);
+  ctx.strokeStyle = color; ctx.lineWidth = s * 0.38; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+}
+function bpDraw() {
+  const cv = $("cv"), vp = $("vp");
+  if (!BP || vp.offsetParent === null) return;
+  const LY = BP.lay;
+  const dpr = window.devicePixelRatio || 1, w = vp.clientWidth, h = vp.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  COLR = {};
+  for (const n of ["--canvas", "--grid", "--machine", "--machine-line", "--fg", "--muted", "--pole", "--pipe", "--accent", "--warn", "--ins-long", LY.tier.tok, LY.insT.tok]) COLR[n] = getVar(n);
+  const body = getVar("--body"), mono = getVar("--mono");
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COLR["--canvas"]; ctx.fillRect(0, 0, w, h);
+  $("bp-zl").textContent = Math.round(bpView.z * 100) + "%";
+  if (BP.edit) return edDraw(ctx, w, h);
+  if (!LY.ents.length) {
+    ctx.fillStyle = COLR["--muted"]; ctx.font = "500 14px " + body; ctx.textAlign = "center";
+    ctx.fillText("No machine modules to lay out yet.", w / 2, h / 2); ctx.textAlign = "left"; return;
+  }
+  if (!bpView.fitted) { bpFit(); $("bp-zl").textContent = Math.round(bpView.z * 100) + "%"; }
+  ctx.setTransform(dpr * bpView.z, 0, 0, dpr * bpView.z, dpr * bpView.x, dpr * bpView.y);
+  const z = bpView.z, beltC = COLR[LY.tier.tok], T = TS;
+  if (z * T >= 9) { ctx.fillStyle = COLR["--grid"]; for (let x = 0; x <= LY.W; x++) for (let y = 0; y <= LY.H; y++) ctx.fillRect(x * T - 1, y * T - 1, 2, 2); }
+  ctx.save(); ctx.font = `600 11px ${body}`;
+  for (const c of LY.cols) {
+    ctx.save(); ctx.translate(c.x * T + T * 0.62, -T * 0.4); ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = itemColor(c.item); ctx.fillText(short(c.item), 0, 0); ctx.restore();
+    if (!c.raw && c.start != null) { ctx.strokeStyle = COLR["--grid"]; ctx.setLineDash([2, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x * T + T / 2, 0); ctx.lineTo(c.x * T + T / 2, c.start * T); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  ctx.restore();
+  ctx.strokeStyle = beltC; ctx.globalAlpha = 0.55; ctx.setLineDash([3, 3]); ctx.lineWidth = 2;
+  for (const p of LY.pairs) { ctx.beginPath(); ctx.moveTo((p.a + 1) * T, (p.y + 0.5) * T); ctx.lineTo(p.b * T, (p.y + 0.5) * T); ctx.stroke(); }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+  for (const e of LY.ents) {
+    const x = e.x * T, y = e.y * T;
+    if (e.t === "belt") {
+      ctx.globalAlpha = 0.32; ctx.fillStyle = beltC; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); ctx.globalAlpha = 1;
+      if (e.lanes) { const o = T * 0.24;
+        if (e.lanes.n) chevron(ctx, x + T / 2, y + T / 2 - o, e.dir, T * 0.3, itemColor(e.lanes.n));
+        if (e.lanes.s) chevron(ctx, x + T / 2, y + T / 2 + o, e.dir, T * 0.3, itemColor(e.lanes.s));
+      } else chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.42, itemColor(e.item));
+    } else if (e.t === "ug") {
+      ctx.fillStyle = beltC; ctx.fillRect(x + 2, y + 3, T - 4, T - 6);
+      ctx.fillStyle = COLR["--canvas"];
+      if (e.io === "input") ctx.fillRect(x + T - 6, y + 6, 3, T - 12); else ctx.fillRect(x + 3, y + 6, 3, T - 12);
+      chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.3, itemColor(e.item));
+    } else if (e.t === "splitter") {
+      ctx.fillStyle = beltC; ctx.globalAlpha = 0.75; ctx.fillRect(x + 1, y + 4, 2 * T - 2, T - 8); ctx.globalAlpha = 1;
+      chevron(ctx, x + T / 2, y + T / 2, e.dir, T * 0.36, itemColor(e.item));
+      chevron(ctx, x + T * 1.5, y + T / 2, e.dir, T * 0.36, COLR["--canvas"]);
+    } else if (e.t === "machine") {
+      ctx.fillStyle = COLR["--machine"]; ctx.fillRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+      ctx.strokeStyle = COLR["--machine-line"]; ctx.lineWidth = 1.5; ctx.strokeRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+      ctx.fillStyle = itemColor(e.item); ctx.beginPath(); ctx.arc(x + e.w * T / 2, y + e.h * T / 2 - (e.w === 3 ? 5 : 0), e.w === 3 ? 8 : 6, 0, Math.PI * 2); ctx.fill();
+      if (e.w === 3 && z * T >= 12) {
+        ctx.fillStyle = COLR["--muted"]; ctx.font = `600 9px ${mono}`; ctx.textAlign = "center";
+        ctx.fillText(e.ent.replace("assembling-machine-", "AM").replace("chemical-plant", "CHEM").replace("electric-furnace", "E-FURN"), x + e.w * T / 2, y + e.h * T - 8); ctx.textAlign = "left";
+      }
+    } else if (e.t === "ins") {
+      const c = COLR[e.ins.tok] || COLR["--ins-long"];
+      ctx.fillStyle = c; ctx.fillRect(x + T * 0.3, y + T * 0.3, T * 0.4, T * 0.4);
+      ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.beginPath();
+      const reach = e.long ? T * 0.5 : T * 0.4;
+      ctx.moveTo(x + T / 2, y + T / 2 - reach); ctx.lineTo(x + T / 2, y + T / 2 + reach); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + T / 2 - 4, y + T / 2 + reach - 4); ctx.lineTo(x + T / 2, y + T / 2 + reach); ctx.lineTo(x + T / 2 + 4, y + T / 2 + reach - 4); ctx.stroke();
+    } else if (e.t === "pole") {
+      ctx.fillStyle = COLR["--pole"]; ctx.beginPath(); ctx.arc(x + T / 2, y + T / 2, T * 0.2, 0, Math.PI * 2); ctx.fill();
+    } else if (e.t === "pipe") {
+      ctx.fillStyle = COLR["--pipe"]; ctx.globalAlpha = 0.7; ctx.fillRect(x, y + T * 0.36, T, T * 0.28); ctx.globalAlpha = 1;
+      ctx.fillStyle = itemColor(e.item); ctx.fillRect(x + T * 0.42, y + T * 0.36, T * 0.16, T * 0.28);
+    }
+  }
+  ctx.textAlign = "left";
+  for (const r of LY.rows) {
+    const lx = (r.hasC ? r.jxC + 3 : r.rowEnd + 2) * T, ly = (r.yM + r.w / 2) * T;
+    ctx.fillStyle = COLR["--fg"]; ctx.font = `600 13px ${body}`;
+    ctx.fillText(`${short(r.id)}${r.parts > 1 ? ` (${r.part + 1}/${r.parts})` : ""}`, lx, ly - 2);
+    ctx.fillStyle = COLR["--muted"]; ctx.font = `500 11px ${mono}`;
+    ctx.fillText(`${r.n}× · ${rateStr(r.outPer * r.n)}${unitLbl()}`, lx, ly + 12);
+    if (r.rowWarn.length) { ctx.fillStyle = COLR["--warn"]; ctx.fillText("check inserters", lx, ly + 25); }
+    for (const p of r.pipes) { ctx.fillStyle = COLR["--pipe"]; ctx.font = `500 10px ${body}`; ctx.textAlign = "right"; ctx.fillText(`${nm(p.item)} ${p.dir === "in" ? "in" : "out"}`, (LY.rowX0 - 1.2) * T, (p.y + 0.72) * T); ctx.textAlign = "left"; }
+  }
+  const fc = BP.sol.final && LY.cols.find(c => c.item === BP.sol.final);
+  if (fc) { ctx.fillStyle = COLR["--accent"]; ctx.font = `700 12px ${body}`; ctx.fillText(`↓ ${short(fc.item)} out`, fc.x * T - 4, (LY.H + 0.6) * T); }
+}
+function describe(e) {
+  const t = BP.lay.tier;
+  if (e.t === "belt") return e.lanes ? `${t.name} · ${[e.lanes.n, e.lanes.s].filter(Boolean).map(nm).join(" | ")}` : `${t.name} · ${nm(e.item)}`;
+  if (e.t === "ug") return `Underground belt (${e.io === "input" ? "entrance" : "exit"}) · ${nm(e.item)}`;
+  if (e.t === "splitter") return `Splitter · ${nm(e.item)}`;
+  if (e.t === "machine") return `${e.mname} · ${nm(e.item)}`;
+  if (e.t === "ins") return `${e.ins.name} · ${e.out ? "output" : "input"}`;
+  if (e.t === "pole") return "Small electric pole";
+  if (e.t === "pipe") return `Pipe guide · ${nm(e.item)} (not in blueprint)`;
+  return "";
+}
+function bpZoomAt(f, px, py) {
+  const nz = Math.max(0.12, Math.min(4, bpView.z * f)), k = nz / bpView.z;
+  bpView.x = px - (px - bpView.x) * k; bpView.y = py - (py - bpView.y) * k; bpView.z = nz; bpDraw();
+}
+(function wireBp() {
+  const cv = $("cv"), tip = $("tip");
+  let dragB = null;
+  cv.addEventListener("pointerdown", e => { if (edActive()) return edDown(e); dragB = { x: e.clientX, y: e.clientY, vx: bpView.x, vy: bpView.y }; cv.setPointerCapture(e.pointerId); cv.classList.add("drag"); tip.hidden = true; });
+  cv.addEventListener("pointermove", e => {
+    if (edActive()) return edMove(e);
+    const r = cv.getBoundingClientRect();
+    if (dragB) { bpView.x = dragB.vx + e.clientX - dragB.x; bpView.y = dragB.vy + e.clientY - dragB.y; bpDraw(); return; }
+    if (!BP) return;
+    const tx = Math.floor((e.clientX - r.left - bpView.x) / bpView.z / TS), ty = Math.floor((e.clientY - r.top - bpView.y) / bpView.z / TS);
+    const ent = BP.lay.G.get(tx + "," + ty);
+    if (!ent) { tip.hidden = true; return; }
+    tip.textContent = describe(ent); tip.hidden = false;
+    tip.style.left = Math.min(e.clientX - r.left + 14, r.width - tip.offsetWidth - 6) + "px";
+    tip.style.top = Math.min(e.clientY - r.top + 14, r.height - tip.offsetHeight - 6) + "px";
+  });
+  const end = () => { if (edActive()) return edUp(); dragB = null; cv.classList.remove("drag"); };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  cv.addEventListener("pointerleave", () => { tip.hidden = true; if (edActive() && !ED.drag) { ED.hover = null; bpDraw(); } });
+  cv.addEventListener("wheel", e => { e.preventDefault(); const r = cv.getBoundingClientRect(); bpZoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+})();
+$("bp-zin").addEventListener("click", () => bpZoomAt(1.25, $("vp").clientWidth / 2, $("vp").clientHeight / 2));
+$("bp-zout").addEventListener("click", () => bpZoomAt(1 / 1.25, $("vp").clientWidth / 2, $("vp").clientHeight / 2));
+$("bp-fit").addEventListener("click", () => { bpView.fitted = false; bpDraw(); });
+$("rowlist").addEventListener("click", e => {
+  const b = e.target.closest("[data-row]"); if (!b || edActive()) return;
+  const LY = BP.lay, r = LY.rows[Number(b.dataset.row)], vp = $("vp");
+  bpView.z = Math.max(bpView.z, 0.9);
+  const cx = ((LY.xb + r.rowEnd) / 2) * TS, cy = ((r.T + r.bottom) / 2) * TS;
+  bpView.x = vp.clientWidth / 2 - cx * bpView.z; bpView.y = vp.clientHeight / 2 - cy * bpView.z; bpDraw();
+});
+$("bp-scope").addEventListener("change", e => { bpSettings().scope = e.target.value; renderBlueprint(); });
+$("bp-belt").addEventListener("change", e => { bpSettings().belt = e.target.value; renderBlueprint(); });
+$("bp-ins").addEventListener("change", e => { bpSettings().ins = e.target.value; renderBlueprint(); });
+$("bp-maxrow").addEventListener("change", e => { bpSettings().maxRow = Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 12))); renderBlueprint(); });
+window.addEventListener("resize", () => { if (!$("view-bp").hidden) { bpView.fitted = false; bpDraw(); } });
+const redrawTheme = () => { if (!$("view-bp").hidden && BP) { ITEM_L = getVar("--item-l") || "62%"; renderRowList(); bpDraw(); } };
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawTheme); } catch (e) {}
+new MutationObserver(redrawTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => bpDraw());
+
+async function encodeBlueprint(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate"));
+  const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return "0" + btoa(bin);
+}
+$("bp-copy").addEventListener("click", async () => {
+  const box = $("bpbox"), ta = $("bptext"), note = $("bpnote");
+  if (!BP || !(BP.edit ? BP.edit.ents.length : BP.lay.ents.length)) return;
+  if (typeof CompressionStream === "undefined") { box.hidden = false; ta.value = ""; note.textContent = "This browser can't compress blueprint strings. Try a current Chrome, Edge, Firefox or Safari."; return; }
+  const obj = BP.edit ? edBlueprintObject(BP.edit.ents, BELT_TIERS[bpSettings().belt], BP.sol.icon, BP.sol.label + " (edited)") : blueprintObject(BP.lay, BP.sol.icon, BP.sol.label);
+  const str = await encodeBlueprint(obj);
+  box.hidden = false; ta.value = str;
+  const hasPipe = BP.edit ? BP.edit.ents.some(e => e.t === "pipe") : BP.lay.counts.pipe;
+  const pipes = hasPipe ? " Pipes aren't included; place them by hand." : "";
+  try { await navigator.clipboard.writeText(str); note.textContent = "Copied to clipboard." + pipes; }
+  catch (e) { ta.focus(); ta.select(); note.textContent = "Select the text above and copy it." + pipes; }
+});
+
+// ================= BLUEPRINT EDITOR (single modules) =================
+const DV = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
+const ROT_CW = { N: "E", E: "S", S: "W", W: "N" }, ROT_CCW = { N: "W", W: "S", S: "E", E: "N" };
+const OPP = { N: "S", S: "N", E: "W", W: "E" };
+const LEFT = { N: "W", E: "N", S: "E", W: "S" }; // the side on your left when facing that way
+const ARROW = { N: "↑", E: "→", S: "↓", W: "←" }, DIRNAME = { N: "north", E: "east", S: "south", W: "west" };
+const INS_KINDS = { basic: INSERTERS.basic, fast: INSERTERS.fast, bulk: INSERTERS.bulk, long: LONG };
+const ED = { tool: "select", dir: "E", insKind: "fast", feed: "iron-plate", sel: null, hover: null, drag: null, snap: null, undo: [], undoKey: null, sim: null };
+const tkey = (x, y) => x + "," + y;
+const edActive = () => !!(BP && BP.edit);
+
+function foot(e) {
+  if (e.t === "machine") return [e.w, e.h];
+  if (e.t === "splitter") return (e.dir === "N" || e.dir === "S") ? [2, 1] : [1, 2];
+  return [1, 1];
+}
+function tilesOf(e, x = e.x, y = e.y) { const [w, h] = foot(e), out = []; for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < h; dy++) out.push(tkey(x + dx, y + dy)); return out; }
+function edFromLayout(LY, bp) {
+  const ents = [], rawTop = new Map(LY.cols.filter(c => c.raw).map(c => [tkey(c.x, 0), c.item]));
+  for (const e of LY.ents) {
+    if (e.t === "belt") { const o = { t: "belt", x: e.x, y: e.y, dir: e.dir }; const f = rawTop.get(tkey(e.x, e.y)); if (f) o.feed = f; ents.push(o); }
+    else if (e.t === "ug") ents.push({ t: "ug", x: e.x, y: e.y, dir: e.dir, io: e.io });
+    else if (e.t === "splitter") ents.push({ t: "splitter", x: e.x, y: e.y, dir: e.dir });
+    else if (e.t === "ins") ents.push({ t: "ins", x: e.x, y: e.y, dir: "S", kind: e.long ? "long" : bp.ins });
+    else if (e.t === "pole") ents.push({ t: "pole", x: e.x, y: e.y });
+    else if (e.t === "pipe") ents.push({ t: "pipe", x: e.x, y: e.y, item: e.item, pdir: e.pdir });
+    else if (e.t === "machine") ents.push({ t: "machine", x: e.x, y: e.y, w: e.w, h: e.h, item: e.item, ent: e.ent, mname: e.mname, recipe: e.recipe });
+  }
+  return { ents };
+}
+
+// ---------- lane simulation ----------
+// Rules: straight and curved belts keep their lanes; a belt joining another from the side
+// (side-load) puts everything on the near lane; inserters drop on the far lane (on the right
+// lane when lined up with the belt); undergrounds carry both lanes through; splitters mix their
+// two inputs onto both outputs, lanes kept.
+function laneSim(ents, U) {
+  const G = new Map();
+  for (const e of ents) for (const k of tilesOf(e)) G.set(k, e);
+  const at = (x, y) => G.get(tkey(x, y));
+  const beltLike = e => !!e && (e.t === "belt" || e.t === "ug" || e.t === "splitter");
+  const LN = new Map(), notes = new Set();
+  for (const e of ents) if (beltLike(e)) {
+    if (e.t === "splitter") { const o = { L: new Set(), R: new Set() }; tilesOf(e).forEach(k => LN.set(k, o)); }
+    else LN.set(tkey(e.x, e.y), { L: new Set(), R: new Set() });
+    if (e.t === "belt" && e.feed) { const o = LN.get(tkey(e.x, e.y)); o.L.add(e.feed); o.R.add(e.feed); }
+  }
+  const pair = new Map();
+  for (const e of ents) if (e.t === "ug" && e.io === "input") {
+    const [dx, dy] = DV[e.dir];
+    for (let k = 1; k <= U + 1; k++) {
+      const o = at(e.x + dx * k, e.y + dy * k);
+      if (o && o.t === "ug" && o.dir === e.dir) { if (o.io === "output" && !pair.has(o)) { pair.set(e, o); pair.set(o, e); } break; }
+    }
+  }
+  const btiles = e => e.t === "splitter" ? tilesOf(e).map(k => k.split(",").map(Number)) : [[e.x, e.y]];
+  const target = (e, x, y) => {
+    if (e.t === "ug" && e.io === "input") { const o = pair.get(e); return o ? [o.x, o.y, true] : null; }
+    const [dx, dy] = DV[e.dir]; return [x + dx, y + dy, false];
+  };
+  const feedsInto = (nx, ny, tx, ty) => {
+    const n = at(nx, ny);
+    if (!beltLike(n) || (n.t === "ug" && n.io === "input")) return false;
+    const [dx, dy] = DV[n.dir]; return nx + dx === tx && ny + dy === ty;
+  };
+  const isCurve = (t, tx, ty) => {
+    const [bx, by] = DV[t.dir];
+    if (feedsInto(tx - bx, ty - by, tx, ty)) return false;
+    const l = DV[LEFT[t.dir]], r = DV[OPP[LEFT[t.dir]]];
+    return feedsInto(tx + l[0], ty + l[1], tx, ty) !== feedsInto(tx + r[0], ty + r[1], tx, ty);
+  };
+  const add = (set, items) => { let ch = false; for (const i of items) if (!set.has(i)) { set.add(i); ch = true; } return ch; };
+  const both = (tl, s) => { const a = add(tl.L, s.L), b = add(tl.R, s.R); return a || b; };
+  const transfer = (src, s, tx, ty, tunnel) => {
+    const t = at(tx, ty); if (!beltLike(t)) return false;
+    const tl = LN.get(tkey(tx, ty));
+    if (tunnel) return both(tl, s);
+    const d = src.dir;
+    if (t.t === "ug" && t.io === "output") { if (t.dir !== d && t.dir !== OPP[d]) notes.add("Side-loading onto an underground exit isn't modelled."); return false; }
+    if (t.dir === d) return both(tl, s);
+    if (t.dir === OPP[d]) return false;
+    if (t.t !== "belt") { notes.add(`Side-loading onto ${t.t === "ug" ? "an underground entrance" : "a splitter"} isn't modelled.`); return false; }
+    if (isCurve(t, tx, ty)) return both(tl, s);
+    return add(OPP[d] === LEFT[t.dir] ? tl.L : tl.R, [...s.L, ...s.R]);
+  };
+  const insEnds = e => { const r = e.kind === "long" ? 2 : 1, [dx, dy] = DV[e.dir]; return { px: e.x - dx * r, py: e.y - dy * r, qx: e.x + dx * r, qy: e.y + dy * r }; };
+  const machIn = new Map();
+  let changed = true, guard = 0;
+  while (changed && guard++ < 500) {
+    changed = false;
+    for (const e of ents) if (beltLike(e)) for (const [x, y] of btiles(e)) {
+      const s = LN.get(tkey(x, y)); if (!s.L.size && !s.R.size) continue;
+      const tg = target(e, x, y); if (tg && transfer(e, s, tg[0], tg[1], tg[2])) changed = true;
+    }
+    for (const e of ents) if (e.t === "ins") {
+      const I = insEnds(e), src = at(I.px, I.py), dst = at(I.qx, I.qy);
+      let items = [];
+      if (beltLike(src)) { const l = LN.get(tkey(I.px, I.py)); items = [...l.L, ...l.R]; }
+      else if (src && src.t === "machine" && !isFluid(src.item)) items = [src.item];
+      if (!items.length || !dst) continue;
+      if (beltLike(dst)) {
+        const tl = LN.get(tkey(I.qx, I.qy)), side = OPP[e.dir];
+        if (add(side === OPP[LEFT[dst.dir]] ? tl.L : tl.R, items)) changed = true;
+      } else if (dst.t === "machine") { const m = machIn.get(dst) || new Set(); machIn.set(dst, m); add(m, items); }
+    }
+  }
+  const checks = [];
+  for (const m of ents.filter(e => e.t === "machine")) {
+    const need = Object.keys(RECIPES[m.item].ins).filter(i => !isFluid(i));
+    if (/^(stone|steel)-furnace$/.test(m.ent)) need.push("coal");
+    const got = machIn.get(m) || new Set(), missing = need.filter(i => !got.has(i));
+    const hasOut = isFluid(m.item) || ents.some(e => e.t === "ins" && at(insEnds(e).px, insEnds(e).py) === m);
+    if (missing.length) checks.push({ x: m.x + 1, y: m.y + 1, m, text: `${short(m.item)} machine is missing ${missing.map(short).join(", ")}.` });
+    if (!hasOut) checks.push({ x: m.x + 1, y: m.y + 1, m, text: `${short(m.item)} machine has no output inserter.` });
+  }
+  const mixed = [];
+  for (const e of ents) if (beltLike(e)) { const l = LN.get(tkey(e.x, e.y)); if (l.L.size > 1 || l.R.size > 1) mixed.push(e); }
+  if (mixed.length) checks.push({ x: mixed[0].x, y: mixed[0].y, text: `${mixed.length} belt tile${mixed.length > 1 ? "s carry" : " carries"} a mixed lane. Click to jump to the first one.` });
+  for (const e of ents) if (e.t === "ug" && !pair.has(e)) checks.push({ x: e.x, y: e.y, text: `Underground ${e.io === "input" ? "entrance" : "exit"} has no partner within ${U} tiles.` });
+  for (const n of notes) checks.push({ text: n });
+  return { G, LN, pair, checks, mixedSet: new Set(mixed), insEnds };
+}
+
+// ---------- state + actions ----------
+function edRecalc() { if (BP && BP.edit) ED.sim = laneSim(BP.edit.ents, BELT_TIERS[bpSettings().belt].U); }
+function edAt(x, y) { return ED.sim.G.get(tkey(x, y)); }
+function edFits(e, x, y) { return tilesOf(e, x, y).every(k => { const o = ED.sim.G.get(k); return !o || o === e; }); }
+function edAdd(e) { if (!edFits(e, e.x, e.y)) return false; BP.edit.ents.push(e); edRecalc(); return true; }
+function edRemove(e) { BP.edit.ents = BP.edit.ents.filter(x => x !== e); if (ED.sel === e) ED.sel = null; edRecalc(); }
+function edPlaceBelt(x, y, dir) {
+  const ex = edAt(x, y);
+  if (ex && ex.t === "belt") { ex.dir = dir; edRecalc(); }
+  else if (!ex) edAdd({ t: "belt", x, y, dir });
+}
+function edPlace(x, y) {
+  const ex = edAt(x, y), U = BELT_TIERS[bpSettings().belt].U;
+  if (ED.tool === "ins") {
+    if (ex && ex.t === "ins") { ex.kind = ED.insKind; ex.dir = ED.dir; edRecalc(); }
+    else if (!ex) edAdd({ t: "ins", x, y, dir: ED.dir, kind: ED.insKind });
+  } else if (ED.tool === "pole") { if (!ex) edAdd({ t: "pole", x, y }); }
+  else if (ED.tool === "ug") {
+    if (ex) return;
+    const [dx, dy] = DV[ED.dir]; let io = "input";
+    for (let k = 1; k <= U + 1; k++) { const o = edAt(x - dx * k, y - dy * k); if (o && o.t === "ug" && o.dir === ED.dir) { if (o.io === "input" && !ED.sim.pair.has(o)) io = "output"; break; } }
+    edAdd({ t: "ug", x, y, dir: ED.dir, io });
+  } else if (ED.tool === "feed") {
+    if (ex && ex.t === "belt") { if (ex.feed === ED.feed) delete ex.feed; else ex.feed = ED.feed; edRecalc(); }
+    else if (!ex) edAdd({ t: "belt", x, y, dir: ED.dir, feed: ED.feed });
+  }
+}
+function edErase(x, y) { const ex = edAt(x, y); if (ex && ex.t !== "machine") edRemove(ex); }
+function edBegin() { ED.snap = JSON.stringify(BP.edit.ents); }
+function edCommit() {
+  if (ED.snap === null) return;
+  const now = JSON.stringify(BP.edit.ents);
+  if (now !== ED.snap) { ED.undo.push(ED.snap); if (ED.undo.length > 80) ED.undo.shift(); }
+  ED.snap = null; plSaveSoon(); edRefresh();
+}
+function edUndo() {
+  if (!ED.undo.length) return;
+  const prev = JSON.parse(ED.undo.pop());
+  BP.edit.ents = prev; ED.sel = null; edRecalc(); plSaveSoon(); edRefresh();
+}
+function edRotateSel(ccw) {
+  const s = ED.sel;
+  if (s && (s.t === "belt" || s.t === "ins" || s.t === "ug")) { edBegin(); s.dir = (ccw ? ROT_CCW : ROT_CW)[s.dir]; edRecalc(); edCommit(); return; }
+  ED.dir = (ccw ? ROT_CCW : ROT_CW)[ED.dir]; edToolbar(); bpDraw();
+}
+function edDeleteSel() { if (ED.sel && ED.sel.t !== "machine") { edBegin(); edRemove(ED.sel); edCommit(); } }
+function edSetTool(t) { ED.tool = t; if (t !== "select") ED.sel = null; edToolbar(); edPanel(); bpDraw(); }
+
+// ---------- ui ----------
+const TOOL_HINT = {
+  select: "Drag a piece to move it, machines included. Drag empty space to pan. R rotates the selected piece; Delete removes it.",
+  belt: "Click to place, or drag to draw a line. The belt follows your drag direction. R rotates before placing.",
+  ug: "Click the entrance, then the exit further along in the same direction. Max gap depends on belt tier.",
+  ins: "Click to place. The arrow points where it drops. Click an existing inserter to re-aim it.",
+  pole: "Click to place a small electric pole.",
+  feed: "Click a belt to mark where an item enters, on both lanes. Click again to clear it.",
+  erase: "Click or drag to remove belts, inserters and poles. Machines can only be moved.",
+};
+function edToolbar() {
+  document.querySelectorAll("#ed-tools [data-tool]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tool === ED.tool));
+  $("ed-ins").hidden = ED.tool !== "ins"; $("ed-feed").hidden = ED.tool !== "feed";
+  $("ed-ins").value = ED.insKind; $("ed-feed").value = ED.feed;
+  $("ed-rot").textContent = `Facing ${ARROW[ED.dir]} (R)`;
+  $("ed-undo").disabled = !ED.undo.length;
+  $("ed-hint").textContent = TOOL_HINT[ED.tool] + " Right-drag pans with any tool.";
+}
+const laneTxt = s => s.size ? [...s].map(short).join(" + ") : "empty";
+function edDescribe(e) {
+  if (!e) return "";
+  const tier = BELT_TIERS[bpSettings().belt];
+  if (e.t === "belt" || e.t === "ug" || e.t === "splitter") {
+    const l = ED.sim.LN.get(tkey(e.x, e.y));
+    const name = e.t === "belt" ? tier.name : e.t === "ug" ? `Underground ${e.io === "input" ? "entrance" : "exit"}` : "Splitter";
+    return `${name} ${ARROW[e.dir]} · left lane: ${laneTxt(l.L)} · right lane: ${laneTxt(l.R)}${e.feed ? ` · input: ${short(e.feed)}` : ""}`;
+  }
+  if (e.t === "ins") return `${INS_KINDS[e.kind].name} · drops ${DIRNAME[e.dir]}`;
+  if (e.t === "machine") return `${e.mname} · ${nm(e.item)}`;
+  if (e.t === "pole") return "Small electric pole";
+  if (e.t === "pipe") return `Pipe guide · ${nm(e.item)} (not in blueprint)`;
+  return "";
+}
+function edPanel() {
+  if (!edActive()) return;
+  const S = ED.sim;
+  const checks = S.checks.length
+    ? S.checks.map(c => `<button type="button" class="ed-check"${c.x != null ? ` data-at="${c.x},${c.y}"` : ""}>${esc(c.text)}</button>`).join("")
+    : `<p class="clear">Every machine gets its ingredients and has an output, and no lane is mixed.</p>`;
+  $("rowlist").innerHTML = `
+    <div class="ed-sec"><h3>Checks</h3>${checks}</div>
+    <div class="ed-sec"><h3>Selected</h3><p class="sub">${ED.sel ? esc(edDescribe(ED.sel)) : "Nothing selected. Use the Select tool and click a piece."}</p></div>
+    <div class="ed-sec help"><h3>Reading the belts</h3><p>Each belt tile shows its two lanes, left and right as the belt travels. An arrow's colour is the item on that lane, grey means empty, and red means more than one item is mixed on the lane.</p>
+      <p>Keys: 1–7 pick tools · R rotate (Shift+R back) · Delete remove · Ctrl+Z undo · Esc back to Select.</p></div>`;
+}
+function edTotals() {
+  const c = {}; for (const e of BP.edit.ents) { const k = e.t === "ins" ? "ins" : e.t; c[k] = (c[k] || 0) + 1; }
+  const b = edBounds();
+  $("bp-totals").innerHTML = `<span>Footprint <b>${b.x1 - b.x0}×${b.y1 - b.y0}</b></span><span>Machines <b>${c.machine || 0}</b></span><span>Belts <b>${c.belt || 0}</b></span><span>Undergrounds <b>${c.ug || 0}</b></span><span>Splitters <b>${c.splitter || 0}</b></span><span>Inserters <b>${c.ins || 0}</b></span><span>Poles <b>${c.pole || 0}</b></span>`;
+}
+function edRefresh() { edToolbar(); edPanel(); edTotals(); bpDraw(); }
+function edBounds() {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const e of BP.edit.ents) { const [w, h] = foot(e); x0 = Math.min(x0, e.x); y0 = Math.min(y0, e.y); x1 = Math.max(x1, e.x + w); y1 = Math.max(y1, e.y + h); }
+  return isFinite(x0) ? { x0, y0, x1, y1 } : { x0: 0, y0: 0, x1: 10, y1: 10 };
+}
+function edFit() {
+  const vp = $("vp"), b = edBounds(), w = vp.clientWidth, h = vp.clientHeight;
+  const ww = (b.x1 - b.x0 + 6) * TS, wh = (b.y1 - b.y0 + 6) * TS;
+  bpView.z = Math.max(0.15, Math.min(1.8, Math.min(w / ww, h / wh)));
+  bpView.x = (w - (b.x1 - b.x0) * TS * bpView.z) / 2 - b.x0 * TS * bpView.z;
+  bpView.y = (h - (b.y1 - b.y0) * TS * bpView.z) / 2 - b.y0 * TS * bpView.z;
+  bpView.fitted = true;
+}
+function edFocus(x, y) {
+  const vp = $("vp"); bpView.z = Math.max(bpView.z, 1.2);
+  bpView.x = vp.clientWidth / 2 - (x + 0.5) * TS * bpView.z; bpView.y = vp.clientHeight / 2 - (y + 0.5) * TS * bpView.z;
+  const e = edAt(x, y); if (e) ED.sel = e;
+  edPanel(); bpDraw();
+}
+
+// ---------- drawing ----------
+function edDrawEnt(ctx, e, ghost) {
+  const T = TS, x = e.x * T, y = e.y * T, S = ED.sim, beltC = COLR[BELT_TIERS[bpSettings().belt].tok];
+  const laneCol = s => !s || !s.size ? COLR["--machine-line"] : s.size > 1 ? COLR["--warn"] : itemColor([...s][0]);
+  const lanesOf = (tx, ty) => ghost ? null : S.LN.get(tkey(tx, ty));
+  const laneChevrons = (tx, ty, dir, s) => {
+    const l = lanesOf(tx, ty), [lx, ly] = DV[LEFT[dir]], o = T * 0.22, cx = tx * T + T / 2, cy = ty * T + T / 2;
+    chevron(ctx, cx + lx * o, cy + ly * o, dir, T * s, laneCol(l && l.L));
+    chevron(ctx, cx - lx * o, cy - ly * o, dir, T * s, laneCol(l && l.R));
+  };
+  if (e.t === "belt") {
+    ctx.globalAlpha = ghost ? 0.25 : 0.32; ctx.fillStyle = beltC; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); ctx.globalAlpha = ghost ? 0.6 : 1;
+    laneChevrons(e.x, e.y, e.dir, 0.28);
+    if (e.feed) { ctx.strokeStyle = itemColor(e.feed); ctx.lineWidth = 2.5; ctx.strokeRect(x + 1.5, y + 1.5, T - 3, T - 3); }
+    if (!ghost && S.mixedSet.has(e)) { ctx.strokeStyle = COLR["--warn"]; ctx.lineWidth = 1.5; ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1); }
+  } else if (e.t === "ug") {
+    ctx.fillStyle = beltC; ctx.globalAlpha = ghost ? 0.5 : 1; ctx.fillRect(x + 2, y + 2, T - 4, T - 4);
+    ctx.fillStyle = COLR["--canvas"]; const [dx, dy] = DV[e.dir];
+    const back = e.io === "input" ? 1 : -1; // dark bar on the tunnel side
+    ctx.fillRect(x + T / 2 - 2 + dx * back * 6 - (dy ? 6 : 0), y + T / 2 - 2 + dy * back * 6 - (dx ? 6 : 0), dy ? 16 : 4, dx ? 16 : 4);
+    laneChevrons(e.x, e.y, e.dir, 0.24);
+  } else if (e.t === "splitter") {
+    const [w, h] = foot(e);
+    ctx.fillStyle = beltC; ctx.globalAlpha = 0.75; ctx.fillRect(x + 1, y + 1, w * T - 2, h * T - 2); ctx.globalAlpha = 1;
+    for (const k of tilesOf(e)) { const [tx, ty] = k.split(",").map(Number); laneChevrons(tx, ty, e.dir, 0.26); }
+  } else if (e.t === "machine") {
+    const bad = !ghost && S.checks.some(c => c.m === e);
+    ctx.fillStyle = COLR["--machine"]; ctx.fillRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+    ctx.strokeStyle = bad ? COLR["--warn"] : COLR["--machine-line"]; ctx.lineWidth = bad ? 2.5 : 1.5; ctx.strokeRect(x + 1.5, y + 1.5, e.w * T - 3, e.h * T - 3);
+    ctx.fillStyle = itemColor(e.item); ctx.beginPath(); ctx.arc(x + e.w * T / 2, y + e.h * T / 2 - (e.w === 3 ? 5 : 0), e.w === 3 ? 8 : 6, 0, Math.PI * 2); ctx.fill();
+    if (e.w === 3 && bpView.z * T >= 12) { ctx.fillStyle = COLR["--muted"]; ctx.font = `600 9px ${getVar("--mono")}`; ctx.textAlign = "center"; ctx.fillText(short(e.item).slice(0, 10), x + e.w * T / 2, y + e.h * T - 7); ctx.textAlign = "left"; }
+    if (bad) { ctx.fillStyle = COLR["--warn"]; ctx.beginPath(); ctx.arc(x + e.w * T - 5, y + 5, 5, 0, Math.PI * 2); ctx.fill(); }
+  } else if (e.t === "ins") {
+    const c = COLR[INS_KINDS[e.kind].tok] || COLR["--ins-long"], long = e.kind === "long";
+    ctx.save(); ctx.globalAlpha = ghost ? 0.6 : 1; ctx.translate(x + T / 2, y + T / 2); ctx.rotate({ S: 0, W: Math.PI / 2, N: Math.PI, E: -Math.PI / 2 }[e.dir]);
+    ctx.fillStyle = c; ctx.fillRect(-T * 0.2, -T * 0.2, T * 0.4, T * 0.4);
+    const reach = long ? T * 0.5 : T * 0.4; ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(0, -reach); ctx.lineTo(0, reach); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, reach - 4); ctx.lineTo(0, reach); ctx.lineTo(4, reach - 4); ctx.stroke(); ctx.restore();
+  } else if (e.t === "pole") {
+    ctx.globalAlpha = ghost ? 0.6 : 1; ctx.fillStyle = COLR["--pole"]; ctx.beginPath(); ctx.arc(x + T / 2, y + T / 2, T * 0.2, 0, Math.PI * 2); ctx.fill();
+  } else if (e.t === "pipe") {
+    ctx.fillStyle = COLR["--pipe"]; ctx.globalAlpha = 0.7; ctx.fillRect(x, y + T * 0.36, T, T * 0.28); ctx.globalAlpha = 1;
+    ctx.fillStyle = itemColor(e.item); ctx.fillRect(x + T * 0.42, y + T * 0.36, T * 0.16, T * 0.28);
+  }
+  ctx.globalAlpha = 1;
+}
+function edDraw(ctx, w, h) {
+  if (!bpView.fitted) edFit();
+  $("bp-zl").textContent = Math.round(bpView.z * 100) + "%";
+  const dpr = window.devicePixelRatio || 1, T = TS, z = bpView.z;
+  ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * bpView.x, dpr * bpView.y);
+  if (z * T >= 9) {
+    const x0 = Math.floor(-bpView.x / z / T) - 1, y0 = Math.floor(-bpView.y / z / T) - 1, x1 = x0 + Math.ceil(w / z / T) + 2, y1 = y0 + Math.ceil(h / z / T) + 2;
+    ctx.fillStyle = COLR["--grid"];
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) ctx.fillRect(x * T - 1, y * T - 1, 2, 2);
+  }
+  const S = ED.sim, beltC = COLR[BELT_TIERS[bpSettings().belt].tok];
+  ctx.strokeStyle = beltC; ctx.globalAlpha = 0.55; ctx.setLineDash([3, 3]); ctx.lineWidth = 2;
+  for (const [a, b] of S.pair) if (a.io === "input") { ctx.beginPath(); ctx.moveTo((a.x + 0.5) * T, (a.y + 0.5) * T); ctx.lineTo((b.x + 0.5) * T, (b.y + 0.5) * T); ctx.stroke(); }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+  for (const e of BP.edit.ents) edDrawEnt(ctx, e, false);
+  // input labels
+  if (z * T >= 10) {
+    ctx.font = `600 11px ${getVar("--body")}`;
+    for (const e of BP.edit.ents) if (e.t === "belt" && e.feed && !edAt(e.x, e.y - 1)) {
+      ctx.save(); ctx.translate(e.x * T + T * 0.62, e.y * T - T * 0.3); ctx.rotate(-Math.PI / 2); ctx.fillStyle = itemColor(e.feed); ctx.fillText(short(e.feed), 0, 0); ctx.restore();
+    }
+  }
+  if (ED.sel) { const [fw, fh] = foot(ED.sel); ctx.strokeStyle = COLR["--accent"]; ctx.lineWidth = 2.5 / z * 1.2; ctx.strokeRect(ED.sel.x * T - 1, ED.sel.y * T - 1, fw * T + 2, fh * T + 2); }
+  const hv = ED.hover;
+  if (hv && !ED.drag && ED.tool !== "select") {
+    const ex = edAt(hv.x, hv.y);
+    if (ED.tool === "erase") { if (ex && ex.t !== "machine") { const [fw, fh] = foot(ex); ctx.strokeStyle = COLR["--warn"]; ctx.lineWidth = 2; ctx.strokeRect(ex.x * T, ex.y * T, fw * T, fh * T); } }
+    else {
+      const ghost = ED.tool === "belt" || ED.tool === "feed" ? { t: "belt", x: hv.x, y: hv.y, dir: ED.dir, feed: ED.tool === "feed" ? ED.feed : undefined }
+        : ED.tool === "ins" ? { t: "ins", x: hv.x, y: hv.y, dir: ED.dir, kind: ED.insKind }
+        : ED.tool === "ug" ? { t: "ug", x: hv.x, y: hv.y, dir: ED.dir, io: "input" } : { t: "pole", x: hv.x, y: hv.y };
+      if (!ex || (ex.t === ghost.t && ghost.t !== "pole")) edDrawEnt(ctx, ghost, true);
+      else { ctx.strokeStyle = COLR["--warn"]; ctx.lineWidth = 1.5; ctx.strokeRect(hv.x * T + 2, hv.y * T + 2, T - 4, T - 4); }
+    }
+  }
+}
+
+// ---------- pointer + keys ----------
+function edTileOf(ev) { const r = $("cv").getBoundingClientRect(); return { x: Math.floor((ev.clientX - r.left - bpView.x) / bpView.z / TS), y: Math.floor((ev.clientY - r.top - bpView.y) / bpView.z / TS) }; }
+function edDown(ev) {
+  const cv = $("cv"), t = edTileOf(ev), hit = edAt(t.x, t.y);
+  cv.setPointerCapture(ev.pointerId); $("tip").hidden = true;
+  if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && ED.tool === "select" && !hit)) {
+    if (ev.button === 0 && ED.sel) { ED.sel = null; edPanel(); }
+    ED.drag = { type: "pan", x: ev.clientX, y: ev.clientY, vx: bpView.x, vy: bpView.y }; cv.classList.add("drag"); bpDraw(); return;
+  }
+  if (ev.button !== 0) return;
+  edBegin();
+  if (ED.tool === "select") { ED.sel = hit; ED.drag = { type: "move", ent: hit, ox: t.x - hit.x, oy: t.y - hit.y }; edPanel(); }
+  else if (ED.tool === "belt") { edPlaceBelt(t.x, t.y, ED.dir); ED.drag = { type: "belt", last: t }; }
+  else if (ED.tool === "erase") { edErase(t.x, t.y); ED.drag = { type: "erase" }; }
+  else { edPlace(t.x, t.y); ED.drag = { type: "click" }; }
+  bpDraw();
+}
+function edMove(ev) {
+  const t = edTileOf(ev), d = ED.drag;
+  if (d && d.type === "pan") { bpView.x = d.vx + ev.clientX - d.x; bpView.y = d.vy + ev.clientY - d.y; bpDraw(); return; }
+  const moved = !ED.hover || ED.hover.x !== t.x || ED.hover.y !== t.y;
+  ED.hover = t;
+  if (d && d.type === "move") {
+    const nx = t.x - d.ox, ny = t.y - d.oy;
+    if ((nx !== d.ent.x || ny !== d.ent.y) && edFits(d.ent, nx, ny)) { d.ent.x = nx; d.ent.y = ny; edRecalc(); edPanel(); }
+  } else if (d && d.type === "belt") {
+    let { x, y } = d.last;
+    while (x !== t.x || y !== t.y) {
+      const dir = x !== t.x ? (t.x > x ? "E" : "W") : (t.y > y ? "S" : "N");
+      const prev = edAt(x, y); if (prev && prev.t === "belt") prev.dir = dir;
+      x += DV[dir][0]; y += DV[dir][1];
+      edPlaceBelt(x, y, dir);
+      ED.dir = dir;
+    }
+    d.last = t; edRecalc(); edToolbar();
+  } else if (d && d.type === "erase") edErase(t.x, t.y);
+  if (d || moved) bpDraw();
+  if (!d) {
+    const tip = $("tip"), e = edAt(t.x, t.y), r = $("cv").getBoundingClientRect();
+    if (!e) { tip.hidden = true; return; }
+    tip.textContent = edDescribe(e); tip.hidden = false;
+    tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 6) + "px";
+    tip.style.top = Math.min(ev.clientY - r.top + 14, r.height - tip.offsetHeight - 6) + "px";
+  }
+}
+function edUp() {
+  const d = ED.drag; ED.drag = null; $("cv").classList.remove("drag");
+  if (d && d.type !== "pan") edCommit(); else bpDraw();
+}
+document.addEventListener("keydown", ev => {
+  if (!edActive() || $("view-bp").hidden || ev.target.closest("input, select, textarea")) return;
+  const k = ev.key;
+  if ((ev.ctrlKey || ev.metaKey) && k.toLowerCase() === "z") { ev.preventDefault(); edUndo(); return; }
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const tools = ["select", "belt", "ug", "ins", "pole", "feed", "erase"];
+  if (/^[1-7]$/.test(k)) edSetTool(tools[Number(k) - 1]);
+  else if (k === "r" || k === "R") { ev.preventDefault(); edRotateSel(ev.shiftKey); }
+  else if (k === "Delete" || k === "Backspace") { ev.preventDefault(); edDeleteSel(); }
+  else if (k === "Escape") { ED.sel = null; edSetTool("select"); }
+});
+$("cv").addEventListener("contextmenu", e => { if (edActive()) e.preventDefault(); });
+$("ed-tools").addEventListener("click", e => { const b = e.target.closest("[data-tool]"); if (b) edSetTool(b.dataset.tool); });
+$("ed-ins").addEventListener("change", e => { ED.insKind = e.target.value; bpDraw(); });
+$("ed-feed").addEventListener("change", e => { ED.feed = e.target.value; bpDraw(); });
+$("ed-rot").addEventListener("click", () => edRotateSel(false));
+$("ed-undo").addEventListener("click", edUndo);
+$("ed-feed").innerHTML = Object.keys(ITEMS).filter(id => !isFluid(id)).map(id => `<option value="${id}">${esc(nm(id))}</option>`).join("");
+$("rowlist").addEventListener("click", e => { const b = e.target.closest("[data-at]"); if (!b || !edActive()) return; const [x, y] = b.dataset.at.split(",").map(Number); edFocus(x, y); });
+
+// edit / discard
+let edDiscardArmed = null;
+$("bp-edit").addEventListener("click", ev => {
+  const L = cur(), bp = bpSettings(), b = ev.currentTarget;
+  if (bp.scope === "all") return;
+  L.edits = L.edits || {};
+  if (!L.edits[bp.scope]) { L.edits[bp.scope] = edFromLayout(BP.lay, bp); ED.undo = []; ED.sel = null; plSave(); renderBlueprint(); return; }
+  if (!edDiscardArmed) { b.classList.add("armed"); b.textContent = "Confirm discard"; edDiscardArmed = setTimeout(() => { b.classList.remove("armed"); b.textContent = "Discard edits"; edDiscardArmed = null; }, 4000); return; }
+  clearTimeout(edDiscardArmed); edDiscardArmed = null; b.classList.remove("armed");
+  delete L.edits[bp.scope]; ED.undo = []; ED.sel = null; plSave(); renderBlueprint();
+});
+function edBlueprintObject(ents, tier, icon, label) {
+  const out = []; let n = 1;
+  for (const e of ents) {
+    const [w, h] = foot(e), pos = { x: e.x + w / 2, y: e.y + h / 2 };
+    if (e.t === "belt") out.push({ entity_number: n++, name: tier.belt, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ug") out.push({ entity_number: n++, name: tier.ug, position: pos, direction: DIR16[e.dir], type: e.io });
+    else if (e.t === "splitter") out.push({ entity_number: n++, name: tier.sp, position: pos, direction: DIR16[e.dir] });
+    else if (e.t === "ins") out.push({ entity_number: n++, name: INS_KINDS[e.kind].ent, position: pos, direction: DIR16[OPP[e.dir]] });
+    else if (e.t === "pole") out.push({ entity_number: n++, name: "small-electric-pole", position: pos });
+    else if (e.t === "machine") { const o = { entity_number: n++, name: e.ent, position: pos }; if (e.recipe) o.recipe = e.recipe; out.push(o); }
+  }
+  const bp = { entities: out, item: "blueprint", label: label.slice(0, 100), version: 562949953421312 };
+  if (icon) bp.icons = [{ signal: { type: "item", name: icon }, index: 1 }];
+  return { blueprint: bp };
+}
+
+// ---------- tabs ----------
+function setView(v) {
+  const views = { calc: "view-calc", plan: "view-plan", bp: "view-bp" }, tabs = { calc: "tab-calc", plan: "tab-plan", bp: "tab-bp" }, hash = { calc: "#calculator", plan: "#modules", bp: "#blueprint" };
+  for (const k of Object.keys(views)) { $(views[k]).hidden = k !== v; $(tabs[k]).setAttribute("aria-selected", k === v); }
+  document.querySelector(".wrap").classList.toggle("wide", v !== "calc");
+  try { history.replaceState(null, "", hash[v]); } catch (e) {}
+  if (v === "plan") showLayout();
+  if (v === "bp") renderBlueprint();
+}
+$("tab-calc").addEventListener("click", () => { setView("calc"); render(); });
+$("tab-plan").addEventListener("click", () => setView("plan"));
+$("tab-bp").addEventListener("click", () => setView("bp"));
+
+render();
+plLoad();
+renderLayoutBar();
+syncAddBtns();
+renderPlanner(); renderInspector();
+setView({ "#planner": "plan", "#modules": "plan", "#blueprint": "bp" }[location.hash] || "calc");
+</script>
+
+</body></html>
