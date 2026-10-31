@@ -69,5 +69,5 @@ from. (The extractor is task 2 in the migration and not written yet.)
 ## Contributors
 
 - Ian ([Fryymann](https://github.com/Fryymann))
-- `<friend>`: wrote the original tile-layout generator (`planLayout`) that the Blueprint tab
+- Kaleb ([KalebMarquez](https://github.com/KalebMarquez)): wrote the original tile-layout generator (`planLayout`) that the Blueprint tab
   is built on.
