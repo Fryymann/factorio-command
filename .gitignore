@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Raw Factorio data dump (large, machine-specific). Only the extracted data/*.json is committed.
+data/raw/
+
+# Personal agent and editor settings stay out of the shared repo.
+.claude/settings.local.json
+.vscode/
+.idea/

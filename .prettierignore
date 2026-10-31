@@ -1,0 +1,6 @@
+artifacts/
+dist/
+coverage/
+node_modules/
+package-lock.json
+data/raw/
