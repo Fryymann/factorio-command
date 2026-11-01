@@ -5,22 +5,26 @@
 //
 // Uses its own config and mod folder under data/raw/factorio/, so it works while the game is open
 // and never touches your saves, settings or mods. Only the base mod is enabled.
-// Set FACTORIO to the path of factorio.exe (or bin/x64/factorio on Linux) if it isn't the default
-// Steam install on Windows.
+// Finds the Steam install on Windows and Linux. Otherwise, or on NixOS, set FACTORIO to the
+// executable (or a wrapper script; see README, "Game data").
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseLoadedMods } from "./extract.ts";
+import { factorioCandidates, spawnFailure } from "./factorio.ts";
 
-const exe =
-  process.env.FACTORIO ??
-  "C:/Program Files (x86)/Steam/steamapps/common/Factorio/bin/x64/factorio.exe";
-if (!existsSync(exe)) {
+const candidates = factorioCandidates(process.platform, homedir(), process.env);
+const found = candidates.find((p) => existsSync(p));
+if (!found) {
+  const looked = candidates.length ? `Looked in:\n  ${candidates.join("\n  ")}\n` : "";
   console.error(
-    `Factorio not found at ${exe}. Set FACTORIO to the path of the factorio executable.`,
+    `Factorio not found. ${looked}Set FACTORIO to the path of the factorio executable ` +
+      `(on NixOS, a wrapper that runs it through steam-run; see README).`,
   );
   process.exit(1);
 }
+const exe = found;
 
 const raw = resolve(import.meta.dirname, "../data/raw");
 const work = join(raw, "factorio");
@@ -42,8 +46,8 @@ writeFileSync(
 
 function run(flag: string): string {
   const args = ["--config", join(work, "config.ini"), "--mod-directory", mods, flag];
-  const r = spawnSync(exe, args, { stdio: "inherit" });
-  if (r.status !== 0) throw new Error(`factorio ${flag} failed (exit ${r.status})`);
+  const failure = spawnFailure(flag, spawnSync(exe, args, { stdio: "inherit" }));
+  if (failure) throw new Error(failure);
   return readFileSync(join(work, "factorio-current.log"), "utf8");
 }
 
