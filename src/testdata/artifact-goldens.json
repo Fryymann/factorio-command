@@ -1,0 +1,692 @@
+{
+  "green": {
+    "graph": {
+      "name": "T",
+      "nodes": [
+        {
+          "id": "n1",
+          "kind": "source",
+          "item": "copper-plate",
+          "rate": 1.5,
+          "x": 24,
+          "y": 24
+        },
+        {
+          "id": "n2",
+          "kind": "source",
+          "item": "iron-plate",
+          "rate": 5.5,
+          "x": 336,
+          "y": 24
+        },
+        {
+          "id": "n3",
+          "kind": "machine",
+          "item": "copper-cable",
+          "count": 1,
+          "mach": "am2",
+          "x": 336,
+          "y": 160
+        },
+        {
+          "id": "n4",
+          "kind": "machine",
+          "item": "electronic-circuit",
+          "count": 1,
+          "mach": "am2",
+          "x": 648,
+          "y": 24
+        },
+        {
+          "id": "n5",
+          "kind": "machine",
+          "item": "iron-gear-wheel",
+          "count": 1,
+          "mach": "am2",
+          "x": 648,
+          "y": 216
+        },
+        {
+          "id": "n6",
+          "kind": "machine",
+          "item": "inserter",
+          "count": 1,
+          "mach": "am2",
+          "x": 960,
+          "y": 24
+        },
+        {
+          "id": "n7",
+          "kind": "machine",
+          "item": "transport-belt",
+          "count": 1,
+          "mach": "am2",
+          "x": 960,
+          "y": 237
+        },
+        {
+          "id": "n8",
+          "kind": "machine",
+          "item": "logistic-science-pack",
+          "count": 8,
+          "mach": "am2",
+          "x": 1272,
+          "y": 24
+        },
+        {
+          "id": "n9",
+          "kind": "output",
+          "item": null,
+          "x": 1584,
+          "y": 24
+        }
+      ],
+      "edges": [
+        {
+          "id": "n10",
+          "from": "n6",
+          "to": "n8",
+          "belt": "15"
+        },
+        {
+          "id": "n11",
+          "from": "n7",
+          "to": "n8",
+          "belt": "15"
+        },
+        {
+          "id": "n12",
+          "from": "n4",
+          "to": "n6",
+          "belt": "15"
+        },
+        {
+          "id": "n13",
+          "from": "n5",
+          "to": "n6",
+          "belt": "15"
+        },
+        {
+          "id": "n14",
+          "from": "n2",
+          "to": "n6",
+          "belt": "15"
+        },
+        {
+          "id": "n15",
+          "from": "n5",
+          "to": "n7",
+          "belt": "15"
+        },
+        {
+          "id": "n16",
+          "from": "n2",
+          "to": "n7",
+          "belt": "15"
+        },
+        {
+          "id": "n17",
+          "from": "n2",
+          "to": "n4",
+          "belt": "15"
+        },
+        {
+          "id": "n18",
+          "from": "n3",
+          "to": "n4",
+          "belt": "15"
+        },
+        {
+          "id": "n19",
+          "from": "n2",
+          "to": "n5",
+          "belt": "15"
+        },
+        {
+          "id": "n20",
+          "from": "n1",
+          "to": "n3",
+          "belt": "15"
+        },
+        {
+          "id": "n21",
+          "from": "n8",
+          "to": "n9",
+          "belt": "15"
+        }
+      ]
+    },
+    "solBuild": [
+      {
+        "id": "copper-cable",
+        "rate": 3,
+        "depth": 3,
+        "exact": 1,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "electronic-circuit",
+        "rate": 1,
+        "depth": 2,
+        "exact": 0.6666666666666666,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "iron-gear-wheel",
+        "rate": 1.5,
+        "depth": 2,
+        "exact": 1,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "inserter",
+        "rate": 1,
+        "depth": 1,
+        "exact": 0.6666666666666666,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "transport-belt",
+        "rate": 1,
+        "depth": 1,
+        "exact": 0.3333333333333333,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "logistic-science-pack",
+        "rate": 1,
+        "depth": 0,
+        "exact": 8,
+        "count": 8,
+        "mach": "am2"
+      }
+    ],
+    "solInputs": [
+      ["copper-plate", 1.5],
+      ["iron-plate", 5.5]
+    ],
+    "solMeta": {
+      "title": "Whole chain · T",
+      "icon": "logistic-science-pack",
+      "label": "T",
+      "warn": []
+    },
+    "layout": {
+      "W": 52,
+      "H": 67,
+      "xb": 24,
+      "jxA": 26,
+      "rowX0": 28,
+      "warn": [],
+      "conflicts": 0,
+      "counts": {
+        "belt": 459,
+        "ug": 18,
+        "splitter": 4,
+        "ins": 29,
+        "long": 1,
+        "pole": 26,
+        "machine": 13,
+        "pipe": 0
+      },
+      "pairs": 9,
+      "cols": [
+        ["copper-plate", 0, true, 1.5, 3],
+        ["iron-plate", 3, true, 5.5, 49],
+        ["copper-cable", 6, false, 3, 13],
+        ["electronic-circuit", 9, false, 1, 37],
+        ["iron-gear-wheel", 12, false, 1.5, 47],
+        ["inserter", 15, false, 1, 57],
+        ["transport-belt", 18, false, 1, 59],
+        ["logistic-science-pack", 21, false, 1, 66]
+      ],
+      "rows": [
+        ["copper-cable", 1, 0, 1, 2, 10, []],
+        ["electronic-circuit", 1, 0, 1, 12, 20, []],
+        ["iron-gear-wheel", 1, 0, 1, 22, 30, []],
+        ["inserter", 1, 0, 1, 32, 44, []],
+        ["transport-belt", 1, 0, 1, 46, 54, []],
+        ["logistic-science-pack", 8, 0, 1, 56, 64, []]
+      ],
+      "entsHash": "8e6b024a5b40d435",
+      "nEnts": 550
+    },
+    "ed": {
+      "n": 550,
+      "hash": "cfb0997ccede3065",
+      "feeds": [
+        [0, 0, "copper-plate"],
+        [3, 0, "iron-plate"]
+      ]
+    },
+    "lane": {
+      "checks": [],
+      "mixed": 0,
+      "pairs": 9
+    },
+    "bpoHash": "3057ac26580804e4",
+    "bpoN": 550,
+    "edBpoHash": "a2feaa4f8111409a",
+    "edBpoLabel": "T (edited)"
+  },
+  "blue": {
+    "graph": {
+      "name": "T",
+      "nodes": [
+        {
+          "id": "n1",
+          "kind": "source",
+          "item": "copper-plate",
+          "rate": 4.6875,
+          "x": 24,
+          "y": 24
+        },
+        {
+          "id": "n2",
+          "kind": "source",
+          "item": "iron-plate",
+          "rate": 4.375,
+          "x": 336,
+          "y": 24
+        },
+        {
+          "id": "n3",
+          "kind": "source",
+          "item": "petroleum-gas",
+          "rate": 23.4375,
+          "x": 336,
+          "y": 160
+        },
+        {
+          "id": "n4",
+          "kind": "source",
+          "item": "coal",
+          "rate": 0.9375,
+          "x": 336,
+          "y": 296
+        },
+        {
+          "id": "n5",
+          "kind": "source",
+          "item": "steel-plate",
+          "rate": 0.625,
+          "x": 648,
+          "y": 24
+        },
+        {
+          "id": "n6",
+          "kind": "source",
+          "item": "water",
+          "rate": 4.6875,
+          "x": 648,
+          "y": 160
+        },
+        {
+          "id": "n7",
+          "kind": "machine",
+          "item": "copper-cable",
+          "count": 4,
+          "mach": "am2",
+          "x": 336,
+          "y": 432
+        },
+        {
+          "id": "n8",
+          "kind": "machine",
+          "item": "iron-gear-wheel",
+          "count": 1,
+          "mach": "am2",
+          "x": 648,
+          "y": 296
+        },
+        {
+          "id": "n9",
+          "kind": "machine",
+          "item": "pipe",
+          "count": 1,
+          "mach": "am2",
+          "x": 648,
+          "y": 467
+        },
+        {
+          "id": "n10",
+          "kind": "machine",
+          "item": "plastic-bar",
+          "count": 1,
+          "mach": "chem",
+          "x": 648,
+          "y": 638
+        },
+        {
+          "id": "n11",
+          "kind": "machine",
+          "item": "electronic-circuit",
+          "count": 2,
+          "mach": "am2",
+          "x": 648,
+          "y": 830
+        },
+        {
+          "id": "n12",
+          "kind": "machine",
+          "item": "engine-unit",
+          "count": 9,
+          "mach": "am2",
+          "x": 960,
+          "y": 24
+        },
+        {
+          "id": "n13",
+          "kind": "machine",
+          "item": "advanced-circuit",
+          "count": 8,
+          "mach": "am2",
+          "x": 960,
+          "y": 237
+        },
+        {
+          "id": "n14",
+          "kind": "machine",
+          "item": "sulfur",
+          "count": 1,
+          "mach": "chem",
+          "x": 960,
+          "y": 450
+        },
+        {
+          "id": "n15",
+          "kind": "machine",
+          "item": "chemical-science-pack",
+          "count": 10,
+          "mach": "am2",
+          "x": 1272,
+          "y": 24
+        },
+        {
+          "id": "n16",
+          "kind": "output",
+          "item": null,
+          "x": 1584,
+          "y": 24
+        }
+      ],
+      "edges": [
+        {
+          "id": "n17",
+          "from": "n12",
+          "to": "n15",
+          "belt": "15"
+        },
+        {
+          "id": "n18",
+          "from": "n13",
+          "to": "n15",
+          "belt": "15"
+        },
+        {
+          "id": "n19",
+          "from": "n14",
+          "to": "n15",
+          "belt": "15"
+        },
+        {
+          "id": "n20",
+          "from": "n5",
+          "to": "n12",
+          "belt": "15"
+        },
+        {
+          "id": "n21",
+          "from": "n8",
+          "to": "n12",
+          "belt": "15"
+        },
+        {
+          "id": "n22",
+          "from": "n9",
+          "to": "n12",
+          "belt": "15"
+        },
+        {
+          "id": "n23",
+          "from": "n10",
+          "to": "n13",
+          "belt": "15"
+        },
+        {
+          "id": "n24",
+          "from": "n7",
+          "to": "n13",
+          "belt": "15"
+        },
+        {
+          "id": "n25",
+          "from": "n11",
+          "to": "n13",
+          "belt": "15"
+        },
+        {
+          "id": "n26",
+          "from": "n6",
+          "to": "n14",
+          "belt": "15"
+        },
+        {
+          "id": "n27",
+          "from": "n3",
+          "to": "n14",
+          "belt": "15"
+        },
+        {
+          "id": "n28",
+          "from": "n2",
+          "to": "n8",
+          "belt": "15"
+        },
+        {
+          "id": "n29",
+          "from": "n2",
+          "to": "n9",
+          "belt": "15"
+        },
+        {
+          "id": "n30",
+          "from": "n3",
+          "to": "n10",
+          "belt": "15"
+        },
+        {
+          "id": "n31",
+          "from": "n4",
+          "to": "n10",
+          "belt": "15"
+        },
+        {
+          "id": "n32",
+          "from": "n2",
+          "to": "n11",
+          "belt": "15"
+        },
+        {
+          "id": "n33",
+          "from": "n7",
+          "to": "n11",
+          "belt": "15"
+        },
+        {
+          "id": "n34",
+          "from": "n1",
+          "to": "n7",
+          "belt": "15"
+        },
+        {
+          "id": "n35",
+          "from": "n15",
+          "to": "n16",
+          "belt": "15"
+        }
+      ]
+    },
+    "solBuild": [
+      {
+        "id": "copper-cable",
+        "rate": 9.375,
+        "depth": 3,
+        "exact": 3.125,
+        "count": 4,
+        "mach": "am2"
+      },
+      {
+        "id": "iron-gear-wheel",
+        "rate": 0.625,
+        "depth": 2,
+        "exact": 0.4166666666666667,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "pipe",
+        "rate": 1.25,
+        "depth": 2,
+        "exact": 0.8333333333333334,
+        "count": 1,
+        "mach": "am2"
+      },
+      {
+        "id": "plastic-bar",
+        "rate": 1.875,
+        "depth": 2,
+        "exact": 0.9375,
+        "count": 1,
+        "mach": "chem"
+      },
+      {
+        "id": "electronic-circuit",
+        "rate": 1.875,
+        "depth": 2,
+        "exact": 1.25,
+        "count": 2,
+        "mach": "am2"
+      },
+      {
+        "id": "engine-unit",
+        "rate": 0.625,
+        "depth": 1,
+        "exact": 8.333333333333332,
+        "count": 9,
+        "mach": "am2"
+      },
+      {
+        "id": "advanced-circuit",
+        "rate": 0.9375,
+        "depth": 1,
+        "exact": 7.5,
+        "count": 8,
+        "mach": "am2"
+      },
+      {
+        "id": "sulfur",
+        "rate": 0.3125,
+        "depth": 1,
+        "exact": 0.15625,
+        "count": 1,
+        "mach": "chem"
+      },
+      {
+        "id": "chemical-science-pack",
+        "rate": 0.625,
+        "depth": 0,
+        "exact": 10,
+        "count": 10,
+        "mach": "am2"
+      }
+    ],
+    "solInputs": [
+      ["copper-plate", 4.6875],
+      ["iron-plate", 4.375],
+      ["petroleum-gas", 23.4375],
+      ["coal", 0.9375],
+      ["steel-plate", 0.625],
+      ["water", 4.6875]
+    ],
+    "solMeta": {
+      "title": "Whole chain · T",
+      "icon": "chemical-science-pack",
+      "label": "T",
+      "warn": []
+    },
+    "layout": {
+      "W": 75,
+      "H": 116,
+      "xb": 39,
+      "jxA": 41,
+      "rowX0": 43,
+      "warn": [],
+      "conflicts": 0,
+      "counts": {
+        "belt": 1357,
+        "ug": 50,
+        "splitter": 4,
+        "ins": 79,
+        "long": 27,
+        "pole": 74,
+        "machine": 37,
+        "pipe": 12
+      },
+      "pairs": 25,
+      "cols": [
+        ["copper-plate", 0, true, 4.6875, 13],
+        ["iron-plate", 3, true, 4.375, 43],
+        ["coal", 6, true, 0.9375, 53],
+        ["steel-plate", 9, true, 0.625, 84],
+        ["copper-cable", 12, false, 9.375, 68],
+        ["electronic-circuit", 15, false, 1.875, 66],
+        ["iron-gear-wheel", 18, false, 0.625, 80],
+        ["pipe", 21, false, 1.25, 82],
+        ["plastic-bar", 24, false, 1.875, 70],
+        ["advanced-circuit", 27, false, 0.9375, 106],
+        ["engine-unit", 30, false, 0.625, 108],
+        ["sulfur", 33, false, 0.3125, 104],
+        ["chemical-science-pack", 36, false, 0.625, 115]
+      ],
+      "rows": [
+        ["copper-cable", 2, 0, 2, 2, 10, []],
+        ["copper-cable", 2, 1, 2, 12, 20, []],
+        ["electronic-circuit", 2, 0, 1, 22, 30, []],
+        ["iron-gear-wheel", 1, 0, 1, 32, 40, []],
+        ["pipe", 1, 0, 1, 42, 50, []],
+        ["plastic-bar", 1, 0, 1, 52, 61, []],
+        ["advanced-circuit", 8, 0, 1, 63, 75, []],
+        ["engine-unit", 9, 0, 1, 77, 89, []],
+        ["sulfur", 1, 0, 1, 91, 99, []],
+        ["chemical-science-pack", 10, 0, 1, 101, 113, []]
+      ],
+      "entsHash": "0ff014f2b97d59c8",
+      "nEnts": 1640
+    },
+    "ed": {
+      "n": 1640,
+      "hash": "1a5cd9d9b890d434",
+      "feeds": [
+        [0, 0, "copper-plate"],
+        [3, 0, "iron-plate"],
+        [6, 0, "coal"],
+        [9, 0, "steel-plate"]
+      ]
+    },
+    "lane": {
+      "checks": [],
+      "mixed": 0,
+      "pairs": 25
+    },
+    "bpoHash": "f08501a23eddb09c",
+    "bpoN": 1628,
+    "edBpoHash": "7e350126bf928ad8",
+    "edBpoLabel": "T (edited)"
+  }
+}
