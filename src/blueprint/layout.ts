@@ -6,6 +6,7 @@ import {
   belt as beltTier,
   isFluid,
   machine,
+  own,
   plannedRecipe,
   productOf,
   itemName,
@@ -146,7 +147,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
   const tier = beltTier(st.belt);
   const laneCap = tier.itemsPerSecond / 2;
   const U = tier.U;
-  const insT = (INSERTERS as Record<string, InserterType>)[st.ins] ?? INSERTERS.fast;
+  const insT = own<InserterType>(INSERTERS, st.ins) ?? INSERTERS.fast;
   const warn: string[] = [];
   const recs = [...sol.build].sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : 1));
   const made = new Set(recs.map((b) => b.id));

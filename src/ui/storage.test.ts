@@ -86,6 +86,22 @@ describe("parseState (fcp-state)", () => {
     expect(error).toMatch(/furnace "lava"/);
   });
 
+  it("warns about JavaScript's built-in names instead of accepting them (#30 review)", () => {
+    const r = parseState(
+      JSON.stringify({
+        item: "constructor",
+        asm: "constructor",
+        furn: "toString",
+        belt: "valueOf",
+      }),
+    );
+    expect(r.state).toEqual(DEFAULT_STATE);
+    expect(r.error).toMatch(/product "constructor"/);
+    expect(r.error).toMatch(/assembler "constructor"/);
+    expect(r.error).toMatch(/furnace "toString"/);
+    expect(r.error).toMatch(/belt "valueOf"/);
+  });
+
   it("doesn't guess at a save from a newer version", () => {
     const r = parseState(
       JSON.stringify({ ...DEFAULT_STATE, version: 3, belt: "fast-transport-belt" }),

@@ -5,7 +5,7 @@
 // The target is already a number, and in "rate" mode already per second: parsing what the
 // player typed and converting from per minute happens in src/ui/planInput.ts (#19).
 // Recipes and machine speeds come from the game data (src/data/game.ts).
-import { GAME, belt, machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
+import { GAME, belt, machine, machinesFor, own, plannedRecipe, productOf } from "../data/game.ts";
 import type { Recipe } from "../data/types.ts";
 
 /** Assembler the plan uses for crafting recipes (entity name). */
@@ -83,9 +83,9 @@ export function machineFor(
 ): PlanMachine {
   const furn = s.furn;
   const asm = s.asm;
-  if (!GAME.machines[furn]?.categories.includes("smelting"))
+  if (!own(GAME.machines, furn)?.categories.includes("smelting"))
     throw new Error(`Unknown furnace "${String(furn)}"`);
-  if (!GAME.machines[asm]?.categories.includes("crafting"))
+  if (!own(GAME.machines, asm)?.categories.includes("crafting"))
     throw new Error(`Unknown assembler "${String(asm)}"`);
   const ids = machinesFor(recipe).map((m) => m.id);
   let id: string;

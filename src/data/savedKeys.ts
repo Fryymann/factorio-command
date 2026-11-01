@@ -3,7 +3,7 @@
 // entity name through unchanged and returns null for anything it doesn't recognise, so callers
 // can warn instead of guessing.
 import type { AssemblerId, FurnaceId } from "../solver/solve.ts";
-import { BELTS, GAME } from "./game.ts";
+import { BELTS, GAME, own } from "./game.ts";
 
 const ASM: Record<string, AssemblerId> = {
   "0.5": "assembling-machine-1",
@@ -37,26 +37,26 @@ const FURNACES = new Set<string>(Object.values(FURN));
 export function migrateAsm(v: unknown): AssemblerId | null {
   if (typeof v !== "string") return null;
   if (ASSEMBLERS.has(v)) return v as AssemblerId;
-  return ASM[v] ?? null;
+  return own(ASM, v) ?? null;
 }
 
 export function migrateFurn(v: unknown): FurnaceId | null {
   if (typeof v !== "string") return null;
   if (FURNACES.has(v)) return v as FurnaceId;
-  return FURN[v] ?? null;
+  return own(FURN, v) ?? null;
 }
 
 /** A Modules block's machine: any crafting machine in the game data. */
 export function migrateMach(v: unknown): string | null {
   if (typeof v !== "string") return null;
-  if (GAME.machines[v]) return v;
-  return MACH[v] ?? null;
+  if (own(GAME.machines, v)) return v;
+  return own(MACH, v) ?? null;
 }
 
 /** A belt tier. The artifact sometimes saved the rate as a number. */
 export function migrateBelt(v: unknown): string | null {
   if (typeof v !== "string" && typeof v !== "number") return null;
   const k = String(v);
-  if (BELTS[k]) return k;
-  return BELT[k] ?? null;
+  if (own(BELTS, k)) return k;
+  return own(BELT, k) ?? null;
 }

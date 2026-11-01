@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BELTS,
+  machine,
   PLANNED,
   belt,
   isFluid,
@@ -96,4 +97,16 @@ describe("machinesFor", () => {
     expect(ids("processing-unit")).toEqual(["assembling-machine-2", "assembling-machine-3"]);
     expect(ids("iron-plate")).toEqual(["stone-furnace", "electric-furnace", "steel-furnace"]);
   });
+});
+
+describe("JavaScript's built-in names", () => {
+  for (const k of ["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"]) {
+    it(`aren't items, machines or belts: ${k}`, () => {
+      expect(() => itemName(k)).toThrow(/Unknown item/);
+      expect(() => isFluid(k)).toThrow(/Unknown item/);
+      expect(() => machine(k)).toThrow(/Unknown machine/);
+      expect(() => belt(k)).toThrow(/Unknown belt/);
+      expect(plannedRecipe(k)).toBeUndefined();
+    });
+  }
 });

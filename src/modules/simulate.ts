@@ -2,7 +2,7 @@
 // artifacts/FCP_v1-2.html (lines 737-821).
 // Pass 1 (downstream -> upstream): how much each block is asked to make.
 // Pass 2 (upstream -> downstream): how much actually arrives, limited by supply and belts.
-import { GAME, belt, isFluid, machine, plannedRecipe, productOf } from "../data/game.ts";
+import { GAME, belt, isFluid, machine, own, plannedRecipe, productOf } from "../data/game.ts";
 import type { ModuleEdge, ModuleGraph, ModuleNode } from "./types.ts";
 
 const EPS = 1e-6;
@@ -94,7 +94,7 @@ export function simulate(L: ModuleGraph): Simulation {
     if (n.kind === "machine") {
       const rec = plannedRecipe(n.item);
       if (!rec) throw new Error(`simulate: unknown recipe ${n.item}`);
-      if (!GAME.machines[n.mach]) throw new Error(`simulate: unknown machine ${n.mach}`);
+      if (!own(GAME.machines, n.mach)) throw new Error(`simulate: unknown machine ${n.mach}`);
       const cps = (Math.max(0, Number(n.count) || 0) * machine(n.mach).speed) / rec.time;
       r.maxOut = cps * productOf(rec, n.item);
       for (const [i, qty] of Object.entries(rec.ingredients)) {

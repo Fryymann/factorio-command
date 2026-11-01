@@ -65,3 +65,16 @@ describe("migrateBelt", () => {
     expect(migrateBelt("underground-belt")).toBeNull();
   });
 });
+
+// Every JavaScript object answers to these names, so a plain obj[k] lookup would accept them
+// (found in Kaleb's agent's review of #30). Saved data is only ever checked against own keys.
+describe("JavaScript's built-in names", () => {
+  for (const k of ["constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"]) {
+    it(`rejects ${k}`, () => {
+      expect(migrateAsm(k)).toBeNull();
+      expect(migrateFurn(k)).toBeNull();
+      expect(migrateMach(k)).toBeNull();
+      expect(migrateBelt(k)).toBeNull();
+    });
+  }
+});

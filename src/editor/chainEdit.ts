@@ -3,7 +3,7 @@
 // A chain edit is never regenerated quietly; the only ways out are editing on or discarding.
 import type { BpSettings, Solution } from "../blueprint/fromModules.ts";
 import type { Layout } from "../blueprint/layout.ts";
-import { BELTS, machine, itemName } from "../data/game.ts";
+import { BELTS, machine, itemName, own } from "../data/game.ts";
 import { INSERTERS } from "../data/legacy.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import type { EdEnt } from "./types.ts";
@@ -44,8 +44,8 @@ export interface StaleWarning {
   text: string;
 }
 
-const beltName = (k: string) => BELTS[k]?.name ?? k;
-const insName = (k: string) => (INSERTERS as Record<string, { name: string }>)[k]?.name ?? k;
+const beltName = (k: string) => own(BELTS, k)?.name ?? k;
+const insName = (k: string) => own<{ name: string }>(INSERTERS, k)?.name ?? k;
 
 /**
  * Differences between the snapshot and the chain as it is now. Empty means the edit still

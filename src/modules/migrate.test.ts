@@ -95,6 +95,24 @@ describe("items the game data doesn't have", () => {
   });
 });
 
+describe("JavaScript's built-in names in a layout (#30 review)", () => {
+  const g = goldens.green.artifactGraph;
+  const refused = (extra: Record<string, unknown>) => {
+    const r = loadLayouts(memory(artifactStore("green", extra)));
+    expect(r.ok).toBe(false);
+    return r.ok ? "" : r.error;
+  };
+  it("refuse the load for an item, a machine or a belt", () => {
+    const items = g.nodes.map((n) => (n.kind === "source" ? { ...n, item: "constructor" } : n));
+    expect(refused({ nodes: items })).toMatch(/"constructor"/);
+    const machs = g.nodes.map((n) => (n.kind === "machine" ? { ...n, mach: "toString" } : n));
+    expect(refused({ nodes: machs })).toMatch(/"toString"/);
+    const edges = g.edges.map((e) => ({ ...e, belt: "valueOf" }));
+    expect(refused({ edges })).toMatch(/"valueOf"/);
+    expect(refused({ bp: { belt: "__proto__" } })).toMatch(/"__proto__"/);
+  });
+});
+
 describe("version 2 layouts", () => {
   it("are saved with a version and load back without being changed", () => {
     const first = loadLayouts(memory(artifactStore("green")));

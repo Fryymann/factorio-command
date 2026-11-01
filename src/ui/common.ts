@@ -1,5 +1,5 @@
 // Helpers shared by the tab views: DOM lookup, escaping, item swatches and item pickers.
-import { itemName, machine } from "../data/game.ts";
+import { itemName, machine, own } from "../data/game.ts";
 import { ITEM_CLASS } from "../data/legacy.ts";
 import type { ItemClass } from "../data/legacy.ts";
 
@@ -43,10 +43,10 @@ const MACHINE_SHORT: Record<string, string> = {
   "chemical-plant": "Chem plant",
 };
 /** A machine's short label, or its game name when it has none. */
-export const machineShort = (id: string): string => MACHINE_SHORT[id] ?? machine(id).name;
+export const machineShort = (id: string): string => own(MACHINE_SHORT, id) ?? machine(id).name;
 
 export const swatchVar = (id: string | null): string =>
-  `var(${SWATCH[(id && ITEM_CLASS[id]) || "raw"]})`;
+  `var(${SWATCH[(id && own(ITEM_CLASS, id)) || "raw"]})`;
 
 export const sw = (id: string | null): string =>
   `<span class="sw" style="background:${swatchVar(id)}"></span>`;

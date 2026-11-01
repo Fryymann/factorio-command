@@ -7,6 +7,15 @@ import type { GameData, Item, Machine, Recipe } from "./types.ts";
 export const GAME = raw as GameData;
 
 /**
+ * `table[key]`, but only for the table's own keys. Every JavaScript object also answers to
+ * built-in names like "constructor" and "toString", so a plain lookup would accept those from
+ * saved or typed data. Use this for any key that didn't come from the code itself.
+ */
+export function own<T>(table: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(table, key) ? table[key] : undefined;
+}
+
+/**
  * The items the planner makes, each with the game recipe of the same name. The same 35 as the
  * artifact; opening up every recipe is #26. Anything else (ores, water, oil products) is a raw
  * input.
@@ -77,7 +86,7 @@ function inArtifactOrder(r: Recipe): Recipe {
 const ordered = new Map<string, Recipe>();
 
 function item(id: string): Item {
-  const it = GAME.items[id];
+  const it = own(GAME.items, id);
   if (!it) throw new Error(`Unknown item "${id}"`);
   return it;
 }
@@ -105,7 +114,7 @@ export function productOf(r: Recipe, id: string): number {
 }
 
 export function machine(id: string): Machine {
-  const m = GAME.machines[id];
+  const m = own(GAME.machines, id);
   if (!m) throw new Error(`Unknown machine "${id}"`);
   return m;
 }
@@ -157,7 +166,7 @@ export const BELTS: Record<string, BeltTier> = Object.fromEntries(
 );
 
 export function belt(id: string): BeltTier {
-  const b = BELTS[id];
+  const b = own(BELTS, id);
   if (!b) throw new Error(`Unknown belt "${id}"`);
   return b;
 }

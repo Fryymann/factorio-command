@@ -2,7 +2,7 @@
 // section of artifacts/FCP_v1-2.html (lines 654-1212). The maths lives in src/modules/; this file
 // only draws it and handles input. Saving goes through src/modules/storage.ts, which reports
 // failures; if saved layouts can't be read, nothing is written so they are never overwritten.
-import { BELTS, isFluid, machine, plannedRecipe, itemName } from "../data/game.ts";
+import { BELTS, isFluid, machine, own, plannedRecipe, itemName } from "../data/game.ts";
 import { ITEM_CLASS } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import { simulate } from "../modules/simulate.ts";
@@ -275,7 +275,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
           `${b} doesn't use ${item}, so the belt from ${a} carries nothing.`,
         ]);
       else if (s.beltLimited) {
-        const tier = BELTS[e.belt]?.name ?? "belt";
+        const tier = own(BELTS, e.belt)?.name ?? "belt";
         list.push([
           `edge:${e.id}`,
           `Belt ${a} → ${b} is full: it needs ${rateStr(s.wanted)}${u}, a ${tier} carries ${rateStr(s.cap)}${u}. Use a faster belt or add a second one.`,
