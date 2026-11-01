@@ -7,7 +7,7 @@ import type { BuildRow, Plan } from "../solver/solve.ts";
 import { esc, el, groupedOptions, sw } from "./common.ts";
 import { planSettings } from "./planInput.ts";
 import { rateStr, state, stateLoadError, unitLbl } from "./state.ts";
-import { saveState } from "./storage.ts";
+import { createStateSaver, saveState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
 
 const checkTag = (id: string): string =>
@@ -16,6 +16,8 @@ const checkTag = (id: string): string =>
     : "";
 
 export function mountCalculator(onSend: () => void): void {
+  const saver = createStateSaver(saveState, stateLoadError);
+
   const importBtn = (id: string): string => {
     if (id === state.item || !RECIPES[id]) return "";
     const on = state.imports.includes(id);
@@ -111,9 +113,7 @@ export function mountCalculator(onSend: () => void): void {
     const input = planSettings(state);
     const plan = input.ok ? solve(input.settings) : undefined;
     const warnList = input.ok ? [...(plan?.warnings ?? [])] : [input.error];
-    if (stateLoadError) warnList.push(stateLoadError);
-    const saveError = saveState(state);
-    if (saveError) warnList.push(saveError);
+    warnList.push(...saver.warnings());
 
     el("th-rate").textContent = unitLbl();
     el("th-rate2").textContent = unitLbl();
@@ -131,12 +131,18 @@ export function mountCalculator(onSend: () => void): void {
     el("mode-rate").setAttribute("aria-pressed", String(state.mode === "rate"));
   }
 
+  /** The user changed a setting: save it, then redraw. */
+  function update(): void {
+    saver.changed(state);
+    render();
+  }
+
   el("item").innerHTML = groupedOptions();
 
   const onChange = <K extends keyof CalcState>(id: string, key: K): void => {
     el<HTMLSelectElement>(id).addEventListener("change", (e) => {
       state[key] = (e.target as HTMLSelectElement).value as CalcState[K];
-      render();
+      update();
     });
   };
   onChange("item", "item");
@@ -146,15 +152,15 @@ export function mountCalculator(onSend: () => void): void {
   onChange("unit", "unit");
   el<HTMLInputElement>("amount").addEventListener("input", (e) => {
     state.amount = (e.target as HTMLInputElement).value;
-    render();
+    update();
   });
   el("mode-buildings").addEventListener("click", () => {
     state.mode = "buildings";
-    render();
+    update();
   });
   el("mode-rate").addEventListener("click", () => {
     state.mode = "rate";
-    render();
+    update();
   });
   el("view-calc").addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-imp]");
@@ -163,7 +169,7 @@ export function mountCalculator(onSend: () => void): void {
     state.imports = state.imports.includes(id)
       ? state.imports.filter((x) => x !== id)
       : [...state.imports, id];
-    render();
+    update();
   });
 
   // With no valid amount there is nothing to send; render() already shows why.

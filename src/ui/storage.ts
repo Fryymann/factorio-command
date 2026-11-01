@@ -4,6 +4,9 @@ import type { AsmSpeed, FurnaceKey, PlanSettings, TargetMode } from "../solver/s
 
 export const STATE_KEY = "fcp-state";
 
+const KEPT = "They're left as they are until you change a setting.";
+const LOAD_ERROR = `Saved calculator settings couldn't be read, so defaults are shown. ${KEPT}`;
+
 /**
  * What the calculator form holds, saved as-is. `amount` is what the player typed, and in "rate"
  * mode it is per minute; `planSettings` (planInput.ts) turns it into solver input.
@@ -37,7 +40,7 @@ export function parseState(raw: string | null): { state: CalcState; error?: stri
   try {
     d = JSON.parse(raw);
   } catch {
-    return { state, error: "Saved calculator settings couldn't be read, so defaults are shown." };
+    return { state, error: LOAD_ERROR };
   }
   if (!d || typeof d !== "object") return { state };
   const o = d as Record<string, unknown>;
@@ -56,7 +59,10 @@ export function loadState(): { state: CalcState; error?: string } {
   try {
     return parseState(localStorage.getItem(STATE_KEY));
   } catch (e) {
-    return { state: parseState(null).state, error: `Couldn't read saved settings: ${String(e)}` };
+    return {
+      state: parseState(null).state,
+      error: `Couldn't read saved settings: ${String(e)}. ${KEPT}`,
+    };
   }
 }
 
@@ -68,4 +74,26 @@ export function saveState(state: CalcState): string | undefined {
     return `Couldn't save calculator settings: ${String(e)}`;
   }
   return undefined;
+}
+
+/**
+ * When the calculator writes `fcp-state` (#15). Nothing is written until the user changes a
+ * setting, so saved data that failed to load isn't replaced by the defaults on the first render.
+ * The load error stays visible until a save has replaced that data.
+ */
+export function createStateSaver(
+  save: (state: CalcState) => string | undefined,
+  loadError?: string,
+): { changed(state: CalcState): void; warnings(): string[] } {
+  let pendingLoadError = loadError;
+  let saveError: string | undefined;
+  return {
+    changed(state) {
+      saveError = save(state);
+      if (!saveError) pendingLoadError = undefined;
+    },
+    warnings() {
+      return [pendingLoadError, saveError].filter((w): w is string => w !== undefined);
+    },
+  };
 }
