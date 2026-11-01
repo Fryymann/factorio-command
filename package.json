@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run format:check && npm run test",
+    "dump-data": "node scripts/dump-data.ts",
     "extract-data": "node scripts/extract-data.ts"
   },
   "devDependencies": {

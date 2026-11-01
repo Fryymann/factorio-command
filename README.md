@@ -53,10 +53,18 @@ Everything outside `src/ui/` is plain logic with no DOM access, so it can be tes
 
 ## Game data
 
-Recipes and machines will be generated from Factorio's own data, not typed in by hand. Run
-`factorio --dump-data` with only the base mod enabled, put the output in `data/raw/`, and run
-`npm run extract-data`. The generated JSON is committed along with the game version it came
-from. (The extractor is task 2 in the migration and not written yet.)
+Recipes, machines and belts come from Factorio's own data, not typed in by hand:
+
+```sh
+npm run dump-data      # runs Factorio (base mod only) and writes the dump to data/raw/
+npm run extract-data   # turns it into data/game-data.json
+```
+
+`dump-data` uses its own settings and mod folder under `data/raw/`, so it works while the game is
+open and doesn't touch your saves or mods. It looks for the Steam install on Windows; set
+`FACTORIO` to the path of the executable if yours is elsewhere. `data/game-data.json` is
+committed, records the game version it came from, and is never edited by hand. The app still
+runs on the hand-typed tables in `src/data/legacy.ts` until they're switched over.
 
 ## Working together
 

@@ -54,6 +54,8 @@ The artifacts are frozen. Don't edit them; port from them.
 - The two exporters (`blueprintObject`, `edBlueprintObject`) are near-duplicates. Merge them
   during task 1.
 - Recipes flagged `check: true` (low density structure, piercing rounds, military science) have
-  never been confirmed against the game. Task 2 settles them.
+  never been confirmed against the game. Task 2 settles them. _Settled by the 2.1.24 dump: low
+  density structure and military science match. Piercing rounds was out of date (changed in
+  2.0.46); see `src/data/gameData.test.ts`._
 - Turbo belt (60/s) is in the belt list, but it is Space Age only. Gate it behind a Space Age
   setting once that exists.
