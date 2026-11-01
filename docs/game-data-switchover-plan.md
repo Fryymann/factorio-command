@@ -7,7 +7,7 @@ Written 2026-11-01.
 
 ## Why, and what Ian decided
 
-#22 generated `data/game-data.json` from Factorio 2.1.24, but nothing reads it yet. This finishes #4 by moving the app onto it. It touches most of the code Kaleb ported in #14 and both saved formats, so we'd like your eyes on it before starting. If you're working on #8, #15 or #16, tell us: this plan touches `parseState` and `loadLayouts` too.
+#22 generated `data/game-data.json` from Factorio 2.1.24, but nothing reads it yet. This finishes #4 by moving the app onto it. It touches most of the code Kaleb ported in #14 and both saved formats, so we'd like your eyes on it before starting. Kaleb's side is fixing #15 in #28, and this plan builds on it; #16 is covered here.
 
 Ian's decisions (2026-11-01):
 
@@ -24,7 +24,7 @@ Calls Clyde made, open to change: the `version` field names and numbers below, s
 
 **Architecture:** One lookup module, `src/data/game.ts`, wraps the generated data (plus the few hand-written facts the game doesn't store) and is the only thing the rest of `src/` imports for game facts. Saved-data migrations live next to each loader (`src/ui/storage.ts`, `src/modules/storage.ts`) and are pure functions with tests. Four commits in the approved order: numbers, names, saved keys, piercing rounds.
 
-**Tech Stack:** TypeScript 7, Vitest 5, Node 24. Branch `ian/game-data-switchover` off `main` **after #24 merges**, since #24 changes `PlanSettings` and `CalcState` too.
+**Tech Stack:** TypeScript 7, Vitest 5, Node 24. Branch `ian/game-data-switchover` off `main` **after #28 merges** (#15: `fcp-state` isn't written until the user changes a setting). #24, which changed `PlanSettings` and `CalcState`, has merged.
 
 **Based on:** Ian's decisions above; AGENTS.md; #24 (`planSettings` in `src/ui/planInput.ts` turns the form into solver input; `PlanSettings.amount` is a number, per second in rate mode; `CalcState.amount` stays what was typed); `docs/fluid-chains-design.md` (the `fcp-state` version field it plans is introduced here as version 2; fluids will take 3).
 
@@ -44,7 +44,7 @@ Calls Clyde made, open to change: the `version` field names and numbers below, s
   - belt (string or number): `15→transport-belt`, `30→fast-transport-belt`, `45→express-transport-belt`, `60→turbo-transport-belt`
 - Unknown values in a saved file produce a visible warning and the default, never a guess (fixes #16). A layout that can't be migrated is left untouched in storage, as `loadLayouts` already does.
 - Each commit leaves `npm run check` green. Golden values may change only where a commit says so, and the test states why.
-- PR description calls out: `MachineKey`, `AsmSpeed`, `FurnaceKey`, `BeltTier` removed or replaced; `PlanMachine` gains `id`; `BpSettings.belt`, `ModuleEdge.belt`, `MachineNode.mach`, `ChainBasis` now hold entity ids; fixes #16; touches #8 and #15.
+- PR description calls out: `MachineKey`, `AsmSpeed`, `FurnaceKey`, `BeltTier` removed or replaced; `PlanMachine` gains `id`; `BpSettings.belt`, `ModuleEdge.belt`, `MachineNode.mach`, `ChainBasis` now hold entity ids; fixes #16; builds on #28 (#15); covers the saved-key part of #8.
 
 ## Review Focus
 
@@ -146,7 +146,7 @@ Until Task 5, `plannedRecipe("piercing-rounds-magazine")` returns the artifact's
   export function migrateBelt(v: unknown): string | null; // belt entity id; accepts numbers
   ```
   Each returns the entity id for an old value, passes a known entity id through unchanged, and returns `null` for anything else.
-- `parseState` (as reshaped by #24): `version` absent → map old keys; `version: 2` → validate as entity ids. Any `null` → default plus warning naming the field. Output always `version: 2`.
+- `parseState` (as reshaped by #24 and #28): an unknown value shows a warning and uses the default for this session; thanks to #28 the saved original isn't overwritten until the user changes a setting. `version` absent → map old keys; `version: 2` → validate as entity ids. Any `null` → default plus warning naming the field. Output always `version: 2`.
 - `loadLayouts`: `version` absent → migrate each layout (nodes' `mach`, edges' `belt`, `bp.belt`, `chainEdit.basis.belt`, `chainEdit.basis.machines[*].mach`); any `null` → whole load fails with a message naming layout and field, storage untouched. `saveLayouts` writes `version: 2`.
 - Delete `MachineKey`, `MACH_ENTITY`, `ASM_ENTITY`, `FURN_ENTITY`, `BELT_BY_RATE`.
 - Tests (write first, watch fail):
@@ -160,7 +160,7 @@ Until Task 5, `plannedRecipe("piercing-rounds-magazine")` returns the artifact's
 - [ ] **Step 1:** Write failing test in `src/data/game.test.ts`: `plannedRecipe("piercing-rounds-magazine")` is time 6, ingredients `{firearm-magazine: 2, steel-plate: 1, copper-plate: 2}`, product 2. Cite Factorio 2.0.46 changelog.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Delete `PIERCING_PRE_2_0_46`.
-- [ ] **Step 4:** Add a solver test in `src/solver/solve.test.ts`: `solve({item:"military-science-pack", amount:1, mode:"buildings", asm:"assembling-machine-2", furn:"steel-furnace", imports:[]})` → the `copper-plate` build row has `rate` 0.075/s (old recipe: 0.375/s). Working: 1 AM2 × 0.75 / 10 s × 2 packs per craft = 0.075 crafts/s → 0.075 piercing magazines/s; at 2 per craft that's 0.0375 crafts/s × 2 copper = 0.075 copper/s. Piercing rounds are the only copper user in military science. (Piercing machine count and firearm magazine rate are the same under both recipes, so they can't tell them apart.)
+- [ ] **Step 4:** Add a solver test in `src/solver/solve.test.ts`: `solve({item:"military-science-pack", amount:1, mode:"buildings", asm:"assembling-machine-2", furn:"steel-furnace", imports:[]})` → the `copper-plate` build row has `rate` 0.075/s (old recipe: 0.375/s). Working: 1 AM2 × 0.75 ÷ 10 s = 0.075 crafts/s (0.15 packs/s, 2 per craft). Each craft takes 1 piercing magazine, so 0.075 piercing magazines/s. At 2 magazines per craft that's 0.0375 crafts/s × 2 copper = 0.075 copper/s. Piercing rounds are the only copper user in military science. (Piercing machine count and firearm magazine rate are the same under both recipes, so they can't tell them apart.)
 - [ ] **Step 5:** `npm run check`. Expected: no golden changes (goldens cover green and blue science only).
 - [ ] **Step 6:** Commit "Use the game's piercing rounds recipe".
 
