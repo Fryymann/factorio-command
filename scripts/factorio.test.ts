@@ -27,27 +27,45 @@ describe("factorioCandidates", () => {
 });
 
 describe("spawnFailure", () => {
+  const enoent = () => Object.assign(new Error("spawnSync /x/factorio ENOENT"), { code: "ENOENT" });
+
   it("names the system error when Factorio couldn't start", () => {
-    // What spawnSync returns on NixOS when the Steam wrapper's #!/bin/bash doesn't exist.
-    const error = Object.assign(new Error("spawnSync /x/factorio ENOENT"), { code: "ENOENT" });
-    expect(spawnFailure("--dump-data", { status: null, signal: null, error })).toBe(
-      "factorio --dump-data couldn't start: spawnSync /x/factorio ENOENT",
+    expect(
+      spawnFailure("--dump-data", { status: null, signal: null, error: enoent() }, false),
+    ).toBe("factorio --dump-data couldn't start: spawnSync /x/factorio ENOENT");
+  });
+
+  it("points at the #! interpreter when the file exists but ENOENT comes back", () => {
+    // On NixOS, Steam's bin/x64/factorio is a #!/bin/bash launcher and /bin/bash doesn't
+    // exist, so spawning a file that is plainly there fails with ENOENT (seen on Kaleb's
+    // machine while reviewing #25).
+    expect(spawnFailure("--dump-data", { status: null, signal: null, error: enoent() }, true)).toBe(
+      "factorio --dump-data couldn't start: spawnSync /x/factorio ENOENT. The file exists, so " +
+        "its #! interpreter may be missing; on NixOS, set FACTORIO to the steam-run wrapper " +
+        "(see README).",
+    );
+  });
+
+  it("adds no hint for other start errors", () => {
+    const error = Object.assign(new Error("spawnSync /x/factorio EACCES"), { code: "EACCES" });
+    expect(spawnFailure("--dump-data", { status: null, signal: null, error }, true)).toBe(
+      "factorio --dump-data couldn't start: spawnSync /x/factorio EACCES",
     );
   });
 
   it("names the signal when Factorio was killed", () => {
-    expect(spawnFailure("--dump-data", { status: null, signal: "SIGKILL" })).toBe(
+    expect(spawnFailure("--dump-data", { status: null, signal: "SIGKILL" }, true)).toBe(
       "factorio --dump-data was stopped by SIGKILL",
     );
   });
 
   it("gives the exit code otherwise", () => {
-    expect(spawnFailure("--dump-data", { status: 1, signal: null })).toBe(
+    expect(spawnFailure("--dump-data", { status: 1, signal: null }, true)).toBe(
       "factorio --dump-data failed with exit code 1",
     );
   });
 
   it("returns null on success", () => {
-    expect(spawnFailure("--dump-data", { status: 0, signal: null })).toBeNull();
+    expect(spawnFailure("--dump-data", { status: 0, signal: null }, true)).toBeNull();
   });
 });

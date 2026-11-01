@@ -46,7 +46,7 @@ writeFileSync(
 
 function run(flag: string): string {
   const args = ["--config", join(work, "config.ini"), "--mod-directory", mods, flag];
-  const failure = spawnFailure(flag, spawnSync(exe, args, { stdio: "inherit" }));
+  const failure = spawnFailure(flag, spawnSync(exe, args, { stdio: "inherit" }), existsSync(exe));
   if (failure) throw new Error(failure);
   return readFileSync(join(work, "factorio-current.log"), "utf8");
 }
