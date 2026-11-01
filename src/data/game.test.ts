@@ -4,13 +4,16 @@ import { describe, expect, it } from "vitest";
 import {
   BELTS,
   machine,
-  PLANNED,
+  PLANNABLE,
   belt,
+  recipesFor,
+  unsupported,
   isFluid,
   itemName,
   machinesFor,
   plannedRecipe,
   productOf,
+  GAME,
 } from "./game.ts";
 
 describe("plannedRecipe", () => {
@@ -27,9 +30,65 @@ describe("plannedRecipe", () => {
     expect(plannedRecipe("water")).toBeUndefined();
   });
 
-  it("plans the same 35 items as the artifact", () => {
-    expect(PLANNED).toHaveLength(35);
-    for (const id of PLANNED) expect(plannedRecipe(id), id).toBeDefined();
+  it("plans every item with a game recipe, the artifact's 35 included (#26)", () => {
+    for (const id of PLANNABLE) expect(plannedRecipe(id), id).toBeDefined();
+    const artifact35 = ["logistic-science-pack", "utility-science-pack", "low-density-structure"];
+    for (const id of artifact35) expect(PLANNABLE).toContain(id);
+    for (const id of ["rocket-silo", "satellite", "assembling-machine-3", "solid-fuel", "pipe"]) {
+      expect(PLANNABLE).toContain(id);
+    }
+  });
+
+  it("lists plannable items in the game's crafting-menu order", () => {
+    const order = (id: string) => {
+      const it = GAME.items[id]!;
+      return [GAME.groups[it.group]!.order, GAME.subgroups[it.subgroup]!.order, it.order];
+    };
+    for (let i = 1; i < PLANNABLE.length; i++) {
+      const a = order(PLANNABLE[i - 1]!).join("|");
+      const b = order(PLANNABLE[i]!).join("|");
+      expect(a <= b, `${PLANNABLE[i - 1]} before ${PLANNABLE[i]}`).toBe(true);
+    }
+    expect(GAME.items[PLANNABLE[0]!]!.group).toBe("logistics");
+  });
+
+  it("offers every recipe for an item made several ways, defaulting solid fuel to light oil", () => {
+    expect(
+      recipesFor("solid-fuel")
+        .map((r) => r.id)
+        .sort(),
+    ).toEqual([
+      "solid-fuel-from-heavy-oil",
+      "solid-fuel-from-light-oil",
+      "solid-fuel-from-petroleum-gas",
+    ]);
+    expect(plannedRecipe("solid-fuel")!.id).toBe("solid-fuel-from-light-oil");
+    expect(plannedRecipe("solid-fuel", "solid-fuel-from-heavy-oil")!.id).toBe(
+      "solid-fuel-from-heavy-oil",
+    );
+    expect(() => plannedRecipe("solid-fuel", "iron-gear-wheel")).toThrow(/solid-fuel/);
+  });
+
+  it("never plans with barrel recipes, so fluids stay raw", () => {
+    expect(plannedRecipe("water")).toBeUndefined();
+    expect(plannedRecipe("crude-oil")).toBeUndefined();
+    expect(unsupported("water")).toBeUndefined();
+    expect(recipesFor("lubricant").map((r) => r.id)).toEqual(["lubricant"]);
+    // The empty barrel is an ordinary item (steel -> barrel), and cliff explosives use one.
+    expect(plannedRecipe("barrel")!.id).toBe("barrel");
+    expect(PLANNABLE).toContain("cliff-explosives");
+  });
+
+  it("says why an item can't be planned", () => {
+    expect(unsupported("water-barrel")).toMatch(/barrel/i);
+    expect(PLANNABLE).not.toContain("water-barrel");
+    for (const id of ["uranium-235", "uranium-fuel-cell", "nuclear-fuel", "atomic-bomb"]) {
+      expect(unsupported(id), id).toMatch(/uranium/i);
+      expect(PLANNABLE).not.toContain(id);
+    }
+    expect(unsupported("rocket-part")).toMatch(/launch/i);
+    expect(unsupported("iron-gear-wheel")).toBeUndefined();
+    expect(unsupported("iron-ore")).toBeUndefined();
   });
 
   it("uses the game's piercing rounds recipe, not the artifact's", () => {

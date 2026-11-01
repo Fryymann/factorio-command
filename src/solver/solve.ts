@@ -22,6 +22,8 @@ export interface PlanSettings {
   asm: AssemblerId;
   furn: FurnaceId;
   imports: string[];
+  /** Which recipe makes an item that has several (`recipesFor`); unlisted items use the default. */
+  recipes?: Record<string, string>;
 }
 
 export interface PlanMachine {
@@ -43,6 +45,7 @@ export interface PlanNode {
 
 export interface BuildRow {
   id: string;
+  recipe: string; // id of the recipe this row's machines run
   rate: number;
   depth: number;
   machine: PlanMachine;
@@ -65,8 +68,8 @@ export interface Plan {
 export const FLUID_ASM_WARNING =
   "Recipes with fluid ingredients need Assembling machine 2 or better. Those rows assume Assembling machine 2.";
 
-function recipeOf(id: string): Recipe {
-  const r = plannedRecipe(id);
+function recipeOf(id: string, choices?: Record<string, string>): Recipe {
+  const r = plannedRecipe(id, choices && own(choices, id));
   if (!r) throw new Error(`No recipe for "${id}"`);
   return r;
 }
@@ -102,7 +105,7 @@ export function machineFor(
 
 /** Items per second of the final product. Throws on a negative or non-finite amount. */
 export function targetRate(s: PlanSettings): number {
-  const r = recipeOf(s.item);
+  const r = recipeOf(s.item, s.recipes);
   const amt = s.amount;
   if (!Number.isFinite(amt) || amt < 0) throw new Error(`Invalid target amount ${String(amt)}`);
   if (s.mode === "rate") return amt;
@@ -117,7 +120,7 @@ export function solve(s: PlanSettings): Plan {
   const inputs = new Map<string, InputRow>();
 
   function expand(id: string, rate: number, depth: number): PlanNode {
-    const recipe = plannedRecipe(id);
+    const recipe = plannedRecipe(id, s.recipes && own(s.recipes, id));
     const isLeaf = !recipe || (depth > 0 && imports.has(id));
     const node: PlanNode = {
       id,
@@ -150,11 +153,12 @@ export function solve(s: PlanSettings): Plan {
   const tree = expand(s.item, targetRate(s), 0);
   const build = [...made.entries()]
     .map(([id, v]) => {
-      const r = recipeOf(id);
+      const r = recipeOf(id, s.recipes);
       const m = machineFor(r, s, warnings);
       const exact = ((v.rate / productOf(r, id)) * r.time) / m.speed;
       return {
         id,
+        recipe: r.id,
         rate: v.rate,
         depth: v.depth,
         machine: m,
@@ -172,7 +176,8 @@ export function solve(s: PlanSettings): Plan {
 export function consumption(build: BuildRow[], id: string): number {
   let r = 0;
   for (const b of build) {
-    const rec = recipeOf(b.id);
+    const rec = plannedRecipe(b.id, b.recipe);
+    if (!rec) throw new Error(`No recipe for "${b.id}"`);
     const qty = rec.ingredients[id];
     if (qty) r += (b.rate / productOf(rec, b.id)) * qty;
   }
