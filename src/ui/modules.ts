@@ -2,8 +2,16 @@
 // section of artifacts/FCP_v1-2.html (lines 654-1212). The maths lives in src/modules/; this file
 // only draws it and handles input. Saving goes through src/modules/storage.ts, which reports
 // failures; if saved layouts can't be read, nothing is written so they are never overwritten.
-import { BELTS, isFluid, machine, own, plannedRecipe, itemName } from "../data/game.ts";
-import { ITEM_CLASS } from "../data/legacy.ts";
+import {
+  BELTS,
+  PLANNABLE,
+  isFluid,
+  itemName,
+  machine,
+  own,
+  plannedRecipe,
+  recipesFor,
+} from "../data/game.ts";
 import { fmt } from "../data/format.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { NodeResult, Simulation } from "../modules/simulate.ts";
@@ -21,7 +29,7 @@ import {
 import type { PlacedLayout, PlacedNode } from "../modules/fromCalc.ts";
 import { solve } from "../solver/solve.ts";
 import {
-  PICKABLE,
+  RAW_ITEMS,
   el,
   esc,
   groupedOptions,
@@ -46,8 +54,8 @@ type Sel = { type: "node" | "edge"; id: string } | null;
 type MachineNode = Extract<PlacedNode, { kind: "machine" }>;
 type SourceNode = Extract<PlacedNode, { kind: "source" }>;
 
-const RECIPE_IDS = PICKABLE.filter((id) => plannedRecipe(id));
-const ALL_IDS = [...PICKABLE, ...Object.keys(ITEM_CLASS).filter((id) => !PICKABLE.includes(id))];
+const RECIPE_IDS = PLANNABLE;
+const ALL_IDS = [...PLANNABLE, ...RAW_ITEMS];
 
 function nodeLabel(n: PlacedNode | undefined): string {
   if (!n) return "?";
@@ -314,8 +322,21 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       box.innerHTML = `<h3>${sw(m.item)}Machine block</h3>
       <div class="field"><label for="pf-item">Makes</label><select id="pf-item">${itemOptions(RECIPE_IDS, m.item)}</select></div>
       <div class="field"><label for="pf-count">Buildings</label><input id="pf-count" type="number" min="0" step="1" value="${m.count}"></div>
+      ${
+        recipesFor(m.item).length > 1
+          ? `<div class="field"><label for="pf-recipe">Recipe</label><select id="pf-recipe">${recipesFor(
+              m.item,
+            )
+              .map(
+                (r) =>
+                  `<option value="${r.id}"${r.id === plannedRecipe(m.item, m.recipe)!.id ? " selected" : ""}>${esc(r.name)}</option>`,
+              )
+              .join("")}</select></div>`
+          : ""
+      }
       <div class="field"><label for="pf-mach">Building type</label><select id="pf-mach">${machOptions(
         m.item,
+        m.recipe,
       )
         .map(
           (k) =>
@@ -326,10 +347,19 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       <div class="btns"><button type="button" class="btn primary" data-act="bp">Module blueprint</button><button type="button" class="btn" data-act="delete">Delete block</button></div>`;
       el("pf-item").addEventListener("change", (ev) => {
         m.item = val(ev);
+        delete m.recipe;
         if (!machOptions(m.item).includes(m.mach)) m.mach = defaultMach(m.item, state);
         renderInspector();
         renderPlanner();
       });
+      if (recipesFor(m.item).length > 1)
+        el("pf-recipe").addEventListener("change", (ev) => {
+          m.recipe = val(ev);
+          if (!machOptions(m.item, m.recipe).includes(m.mach))
+            m.mach = defaultMach(m.item, state, m.recipe);
+          renderInspector();
+          renderPlanner();
+        });
       el("pf-count").addEventListener("input", (ev) => {
         m.count = Math.max(0, Number(val(ev)) || 0);
         renderPlanner();
@@ -692,8 +722,8 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
 
   // ---------- toolbar ----------
   const addItem = el<HTMLSelectElement>("pl-add-item");
-  addItem.innerHTML = `${groupedOptions()}<optgroup label="Raw and fluids">${itemOptions(
-    Object.keys(ITEM_CLASS).filter((id) => !PICKABLE.includes(id)),
+  addItem.innerHTML = `${groupedOptions()}<optgroup label="Raw inputs">${itemOptions(
+    RAW_ITEMS,
   )}</optgroup>`;
   const syncAddBtns = (): void => {
     el<HTMLButtonElement>("pl-add-machine").disabled = !plannedRecipe(addItem.value);

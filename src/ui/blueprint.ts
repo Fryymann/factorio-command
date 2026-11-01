@@ -8,8 +8,8 @@ import { blueprintObject } from "../blueprint/export.ts";
 import { encodeBlueprint } from "../blueprint/encode.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import type { Layout, LayoutEnt } from "../blueprint/layout.ts";
-import { belt, isFluid, itemName } from "../data/game.ts";
-import { INS_KINDS, ITEM_CLASS } from "../data/legacy.ts";
+import { ITEMS_IN_ORDER, belt, isFluid, itemName, unsupported } from "../data/game.ts";
+import { INS_KINDS } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import * as actions from "../editor/actions.ts";
 import type { EditSession, Tool } from "../editor/actions.ts";
@@ -833,8 +833,7 @@ export function mountBlueprint(): BlueprintTab {
     ED.feed = (ev.target as HTMLSelectElement).value;
     bpDraw();
   });
-  el("ed-feed").innerHTML = Object.keys(ITEM_CLASS)
-    .filter((id) => !isFluid(id))
+  el("ed-feed").innerHTML = ITEMS_IN_ORDER.filter((id) => !isFluid(id) && !unsupported(id))
     .map((id) => `<option value="${id}">${esc(itemName(id))}</option>`)
     .join("");
   el("ed-rot").addEventListener("click", () => rotateSel(false));

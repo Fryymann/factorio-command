@@ -140,15 +140,18 @@ const sortKey = (id: string) => {
   return [GAME.groups[it.group]!.order, GAME.subgroups[it.subgroup]!.order, it.order, id];
 };
 
+/** Every item in the game data, in the game's crafting-menu order. */
+export const ITEMS_IN_ORDER: readonly string[] = Object.keys(GAME.items).sort((a, b) => {
+  const x = sortKey(a);
+  const y = sortKey(b);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i]! < y[i]! ? -1 : 1;
+  return 0;
+});
+
 /** Items the planner can make, in the game's crafting-menu order. */
-export const PLANNABLE: readonly string[] = Object.keys(GAME.items)
-  .filter((id) => recipesFor(id).length > 0)
-  .sort((a, b) => {
-    const x = sortKey(a);
-    const y = sortKey(b);
-    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i]! < y[i]! ? -1 : 1;
-    return 0;
-  });
+export const PLANNABLE: readonly string[] = ITEMS_IN_ORDER.filter(
+  (id) => recipesFor(id).length > 0,
+);
 for (const id of PLANNABLE) plannedRecipe(id); // every item made several ways needs a default
 
 /** How many of `item` one craft of `r` makes. */

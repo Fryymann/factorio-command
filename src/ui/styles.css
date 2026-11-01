@@ -349,6 +349,14 @@ tr:last-child td {
   align-items: center;
   gap: 8px;
 }
+/* Recipe choice for an item made several ways, under its name in the build list. */
+.recipe-pick {
+  display: block;
+  margin-top: 4px;
+  max-width: 100%;
+  font-size: 12px;
+  padding: 2px 6px;
+}
 .sw {
   width: 12px;
   height: 12px;

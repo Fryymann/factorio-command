@@ -1,8 +1,7 @@
 // Canvas drawing for the Blueprint tab: the generated layout and the editor. Ported from
 // `bpDraw`, `chevron`, `edDrawEnt` and `edDraw` (artifacts/FCP_v1-2.html, lines 1553-1653 and
 // 1973-2054), plus labels from src/editor/annotations.ts. Draws only; no state of its own.
-import { itemName } from "../data/game.ts";
-import { ITEM_CLASS } from "../data/legacy.ts";
+import { ITEMS_IN_ORDER, itemName } from "../data/game.ts";
 import type { Layout } from "../blueprint/layout.ts";
 import type { EditSession } from "../editor/actions.ts";
 import type { Annotations } from "../editor/annotations.ts";
@@ -38,7 +37,7 @@ export interface BpView {
 export const getVar = (n: string): string =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-const ITEM_IDS = Object.keys(ITEM_CLASS);
+const ITEM_IDS = ITEMS_IN_ORDER;
 export function itemColorFn(lightness: string): (id: string | null | undefined) => string {
   return (id) => {
     const i = id ? ITEM_IDS.indexOf(id) : -1;
