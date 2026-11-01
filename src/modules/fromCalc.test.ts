@@ -17,7 +17,7 @@ const counter = () => {
 };
 
 // The goldens are what the frozen artifact's own `layoutFromCalc` produced (scripts/artifact-goldens.mjs).
-const cases: [string, PlanSettings][] = [
+const cases: [keyof typeof goldens, PlanSettings][] = [
   [
     "green",
     {
@@ -36,7 +36,7 @@ describe("layoutFromCalc matches the artifact", () => {
     it(key, () => {
       const plan = solve(s);
       const L = layoutFromCalc({ plan, ...s, belt: "15" }, "T", counter());
-      const g = goldens.green.graph;
+      const g = goldens[key].graph;
       expect(L.nodes).toEqual(g.nodes);
       expect(L.edges).toEqual(g.edges);
     });
