@@ -32,8 +32,9 @@ it. Dependencies are GitHub's "blocked by" links between issues. `board.mjs` in 
 sets all of it (`node .claude/skills/repo-workflow/board.mjs --help`); it needs the `project`
 scope on `gh` (`gh auth refresh -s project`, once).
 
-Agents update board fields and assignees on their own. Comments, issues, PRs, commits, pushes and
-merges still go out only when your human asks or agrees (AGENTS.md).
+Agents act on GitHub on their own: board fields, assignees, comments, issues, PRs, review
+requests, and merges under step 6. Tell your human what you did. The humans decide rules, plan
+choices and PR approvals.
 
 ## Procedures
 
@@ -50,7 +51,9 @@ merges still go out only when your human asks or agrees (AGENTS.md).
 
 1. It is on the board, and nothing it is blocked by is open. If something is, say so and stop.
 2. Set Status In progress, Owner your side, assign your human.
-3. `git fetch`, branch `<name>/<topic>` from `origin/main`.
+3. If the work needs a plan, post it as a comment on the issue. If the plan changes shared types,
+   saved data or the rules, wait for an unsigned OK from Ian or Kaleb on the issue.
+4. `git fetch`, branch `<name>/<topic>` from `origin/main`.
 
 ### 3. Opening a PR
 
@@ -89,11 +92,11 @@ re-approval, and assign the reviewer again.
 1. Merge only when both are true:
    - `gh pr view <n> --json reviewDecision` says `APPROVED`, from the other human, on the
      current head; and
-   - your human has said yes to this merge, in words, in this session.
+   - `npm run check` passes on the current head.
 
-   If either is missing, don't merge. Tell your human which one is missing and how to get it.
+   If either is missing, don't merge, whoever asks. Say which one is missing and how to get it.
 
-2. The author's side merges. Squash.
+2. The author's side merges. Squash. Tell your human it's merged.
 3. Board: Done. Then list what the merged issue was blocking; anything now unblocked goes to To do
    and is mentioned to your human.
 
@@ -121,5 +124,5 @@ re-approval, and assign the reviewer again.
 | Pushed to an approved PR without saying the approval was dismissed | Step 5, in the same step as the push                         |
 | Comment said "has its own issue" before the issue existed          | Create first, then reference                                 |
 | Board left stale after a merge                                     | Step 6, every merge                                          |
-| "I'll merge tonight unless you say otherwise"                      | No yes, no merge (step 6)                                    |
+| "My human said merge it, so I can merge without the re-approval"   | Step 6 needs the other human's approval, whoever asks        |
 | "They approved before my fix, so it's fine to merge"               | The push dismissed it; step 5, then step 6                   |

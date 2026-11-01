@@ -17,6 +17,7 @@ const HELP = `Usage: node .claude/skills/repo-workflow/board.mjs <command>
   set <n> [field=value]... add issue/PR #n to the board if needed and set fields:
                            status=, owner=, phase= (a value's prefix is enough: phase=2)
   assign <n> <login>...    make it these people's turn (replaces the assignees)
+  assign <n> --nobody      nobody's turn (clears the assignees)
   block <n> --by <m>...    record that issue #n is blocked by issue(s) #m
   blocked <n>              list what blocks issue #n, and what it blocks
 
@@ -177,13 +178,16 @@ function set(n, pairs) {
 }
 
 function assign(n, logins) {
+  if (logins.length === 0) throw new Error("usage: assign <n> <login>... (use --nobody to clear)");
+  if (logins.length === 1 && logins[0] === "--nobody") logins = [];
   for (const l of logins)
     if (!HUMANS[l]) throw new Error(`unknown login ${l}; use Fryymann or KalebMarquez`);
   // The issues endpoint covers PRs too, and PATCH replaces the whole list.
   const args = ["api", "--method", "PATCH", `repos/${REPO}/issues/${n}`];
+  if (logins.length === 0) args.push("--input", "-");
   for (const l of logins) args.push("-f", `assignees[]=${l}`);
-  gh(args);
-  console.log(`#${n}: turn = ${logins.map((l) => HUMANS[l]).join(", ")}`);
+  gh(args, { input: logins.length === 0 ? JSON.stringify({ assignees: [] }) : undefined });
+  console.log(`#${n}: turn = ${logins.map((l) => HUMANS[l]).join(", ") || "nobody"}`);
 }
 
 function block(n, by) {
