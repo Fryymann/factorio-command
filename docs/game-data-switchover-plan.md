@@ -24,13 +24,14 @@ Calls Clyde made, open to change: the `version` field names and numbers below, s
 
 **Architecture:** One lookup module, `src/data/game.ts`, wraps the generated data (plus the few hand-written facts the game doesn't store) and is the only thing the rest of `src/` imports for game facts. Saved-data migrations live next to each loader (`src/ui/storage.ts`, `src/modules/storage.ts`) and are pure functions with tests. Four commits in the approved order: numbers, names, saved keys, piercing rounds.
 
-**Tech Stack:** TypeScript 7, Vitest 5, Node 24. Branch `ian/game-data-switchover` off `main` (3cf917c or later).
+**Tech Stack:** TypeScript 7, Vitest 5, Node 24. Branch `ian/game-data-switchover` off `main` **after #24 merges**, since #24 changes `PlanSettings` and `CalcState` too.
 
-**Based on:** Ian's decisions above; AGENTS.md; `docs/fluid-chains-design.md` (the `fcp-state` version field it plans is introduced here as version 2; fluids will take 3).
+**Based on:** Ian's decisions above; AGENTS.md; #24 (`planSettings` in `src/ui/planInput.ts` turns the form into solver input; `PlanSettings.amount` is a number, per second in rate mode; `CalcState.amount` stays what was typed); `docs/fluid-chains-design.md` (the `fcp-state` version field it plans is introduced here as version 2; fluids will take 3).
 
 ## Global Constraints
 
 - Offered recipes stay the same 35 items (`RECIPES` keys in `legacy.ts` today). Opening up all 202 is PR 2.
+- Works the same on Windows and Linux (Kaleb is on NixOS). Nothing here is OS-specific: the app runs in the browser, and the tests read only committed files (`data/game-data.json`, the goldens), never `data/raw/`.
 - Oil fluids (petroleum gas, heavy oil, light oil), water, crude oil and ores stay raw inputs: `plannedRecipe` returns `undefined` for them.
 - Every number comes from `game-data.json`. Hand-written and kept: inserter throughput (`INSERTERS`, `LONG`, `INS_KINDS`), swatch colour classes, the 35-item planned list, turbo belt (Space Age, until #11), short machine labels for the Modules boxes.
 - Item names: the game's (`GAME.items[id].name`). No hand-written names remain.
@@ -136,7 +137,7 @@ Until Task 5, `plannedRecipe("piercing-rounds-magazine")` returns the artifact's
 
 **Files:**
 
-- Modify: `src/solver/solve.ts` (`asm: AssemblerId`, `furn: FurnaceId` where `AssemblerId = "assembling-machine-1"|"assembling-machine-2"|"assembling-machine-3"`, `FurnaceId = "stone-furnace"|"steel-furnace"|"electric-furnace"`), `src/ui/storage.ts`, `src/modules/{types,storage,fromCalc}.ts`, `src/blueprint/fromModules.ts`, `src/editor/chainEdit.ts`, UI pickers.
+- Modify: `src/solver/solve.ts` (`asm: AssemblerId`, `furn: FurnaceId` where `AssemblerId = "assembling-machine-1"|"assembling-machine-2"|"assembling-machine-3"`, `FurnaceId = "stone-furnace"|"steel-furnace"|"electric-furnace"`), `src/ui/storage.ts`, `src/ui/planInput.ts` (passes `asm`/`furn` through unchanged; `planInput.test.ts` then expects `asm: "assembling-machine-2"`, `furn: "steel-furnace"` for `DEFAULT_STATE`), `src/modules/{types,storage,fromCalc}.ts`, `src/blueprint/fromModules.ts`, `src/editor/chainEdit.ts`, UI pickers. The migration never touches `amount`: #24 already validates it in `planSettings`.
 - Create: `src/data/savedKeys.ts` (+ test): the exact mappings from Global Constraints.
   ```ts
   export function migrateAsm(v: unknown): AssemblerId | null;
@@ -145,7 +146,7 @@ Until Task 5, `plannedRecipe("piercing-rounds-magazine")` returns the artifact's
   export function migrateBelt(v: unknown): string | null; // belt entity id; accepts numbers
   ```
   Each returns the entity id for an old value, passes a known entity id through unchanged, and returns `null` for anything else.
-- `parseState`: `version` absent → map old keys; `version: 2` → validate as entity ids. Any `null` → default plus warning naming the field. Output always `version: 2`.
+- `parseState` (as reshaped by #24): `version` absent → map old keys; `version: 2` → validate as entity ids. Any `null` → default plus warning naming the field. Output always `version: 2`.
 - `loadLayouts`: `version` absent → migrate each layout (nodes' `mach`, edges' `belt`, `bp.belt`, `chainEdit.basis.belt`, `chainEdit.basis.machines[*].mach`); any `null` → whole load fails with a message naming layout and field, storage untouched. `saveLayouts` writes `version: 2`.
 - Delete `MachineKey`, `MACH_ENTITY`, `ASM_ENTITY`, `FURN_ENTITY`, `BELT_BY_RATE`.
 - Tests (write first, watch fail):
