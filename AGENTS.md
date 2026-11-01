@@ -76,6 +76,9 @@ right is the worst bug this project can have.
   or delete branches on your own.
 - **Shared types:** a change to `src/data/types.ts` or any exported type used across folders
   must be called out in the PR description, because the other branch is probably building on it.
+- **Windows and Linux.** Ian works on Windows, Kaleb on NixOS. Scripts, `npm` commands and tests
+  must work on both: no hard-coded paths without a way to override them, no shell-only commands,
+  and tests read only committed files (never `data/raw/`).
 - **Stay in scope.** Don't reformat, rename or "tidy" code your task doesn't need. Prettier
   handles formatting; run `npm run format` on files you touched.
 - **Handoffs go in GitHub.** Notes for the other developer or their agent go in the PR

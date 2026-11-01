@@ -61,8 +61,24 @@ npm run extract-data   # turns it into data/game-data.json
 ```
 
 `dump-data` uses its own settings and mod folder under `data/raw/`, so it works while the game is
-open and doesn't touch your saves or mods. It looks for the Steam install on Windows; set
-`FACTORIO` to the path of the executable if yours is elsewhere. `data/game-data.json` is
+open and doesn't touch your saves or mods. It finds the Steam install on Windows and Linux; set
+`FACTORIO` to the path of the executable if yours is elsewhere.
+
+On NixOS the Steam build can't run directly: its launcher script expects `/bin/bash`, and the game
+needs `steam-run`. Point `FACTORIO` at a small wrapper instead, and keep the checkout under your
+home folder, because `steam-run` can't see private `/tmp` directories. Save this as
+`factorio-nix` and make it executable (`chmod +x factorio-nix`):
+
+```sh
+#!/usr/bin/env bash
+exec steam-run ~/.local/share/Steam/steamapps/common/Factorio/bin/x64_/factorio "$@"
+```
+
+```sh
+FACTORIO=/path/to/factorio-nix npm run dump-data
+```
+
+`data/game-data.json` is
 committed, records the game version it came from, and is never edited by hand. The app still
 runs on the hand-typed tables in `src/data/legacy.ts` until they're switched over.
 
