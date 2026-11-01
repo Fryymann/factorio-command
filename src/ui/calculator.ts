@@ -98,11 +98,14 @@ export function mountCalculator(onSend: () => void): void {
     el("tree").innerHTML = treeRows(tree);
   }
 
-  /** An amount the solver can't take: blank the results rather than show numbers for a guess. */
-  function renderNoPlan(): void {
+  /**
+   * An amount the solver can't take: blank the results rather than show numbers for a guess.
+   * The build table repeats `error` so it agrees with the warning above it.
+   */
+  function renderNoPlan(error: string): void {
     el("equiv").textContent = "";
     for (const id of ["s-out", "s-bld", "s-iron", "s-copper"]) el(id).textContent = "–";
-    el("build").innerHTML = `<tr><td colspan="5" class="empty">Enter a target amount.</td></tr>`;
+    el("build").innerHTML = `<tr><td colspan="5" class="empty">${esc(error)}</td></tr>`;
     el("inputs").innerHTML = `<tr><td colspan="5" class="empty">No inputs.</td></tr>`;
     el("tree").innerHTML = "";
   }
@@ -118,8 +121,8 @@ export function mountCalculator(onSend: () => void): void {
     el("th-rate").textContent = unitLbl();
     el("th-rate2").textContent = unitLbl();
     el("warnings").innerHTML = warnList.map((w) => `<div class="warnbox">${esc(w)}</div>`).join("");
-    if (plan) renderPlan(plan);
-    else renderNoPlan();
+    if (!input.ok) renderNoPlan(input.error);
+    else if (plan) renderPlan(plan);
 
     el<HTMLSelectElement>("item").value = state.item;
     el<HTMLInputElement>("amount").value = String(state.amount);
