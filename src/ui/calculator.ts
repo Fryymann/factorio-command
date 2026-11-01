@@ -5,6 +5,7 @@ import { fmt } from "../data/format.ts";
 import { consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
 import { esc, el, groupedOptions, sw } from "./common.ts";
+import { planSettings } from "./planInput.ts";
 import { rateStr, state, stateLoadError, unitLbl } from "./state.ts";
 import { saveState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
@@ -81,31 +82,44 @@ export function mountCalculator(onSend: () => void): void {
     return rows.join("");
   }
 
-  function render(): void {
-    const { tree, build, inputs, warnings } = solve(state);
-    const warnList = [...warnings];
-    if (stateLoadError) warnList.push(stateLoadError);
-    const saveError = saveState(state);
-    if (saveError) warnList.push(saveError);
-
-    el("th-rate").textContent = unitLbl();
-    el("th-rate2").textContent = unitLbl();
+  function renderPlan({ tree, build, inputs }: Plan): void {
     el("equiv").textContent =
       state.mode === "buildings"
         ? `= ${rateStr(tree.rate)} ${short(state.item)}${unitLbl()}`
         : `= ${fmt(tree.count ?? 0, 2)} buildings of ${short(state.item)}`;
-    el("warnings").innerHTML = warnList.map((w) => `<div class="warnbox">${esc(w)}</div>`).join("");
-
     el("s-out").innerHTML = `${rateStr(tree.rate)}<small>${unitLbl()}</small>`;
     el("s-bld").innerHTML = `${build.reduce((s, b) => s + b.count, 0)}<small>total</small>`;
     el("s-iron").innerHTML =
       `${rateStr(consumption(build, "iron-plate"))}<small>${unitLbl()}</small>`;
     el("s-copper").innerHTML =
       `${rateStr(consumption(build, "copper-plate"))}<small>${unitLbl()}</small>`;
-
     el("build").innerHTML = buildRows(build);
     el("inputs").innerHTML = inputRows(inputs);
     el("tree").innerHTML = treeRows(tree);
+  }
+
+  /** An amount the solver can't take: blank the results rather than show numbers for a guess. */
+  function renderNoPlan(): void {
+    el("equiv").textContent = "";
+    for (const id of ["s-out", "s-bld", "s-iron", "s-copper"]) el(id).textContent = "–";
+    el("build").innerHTML = `<tr><td colspan="5" class="empty">Enter a target amount.</td></tr>`;
+    el("inputs").innerHTML = `<tr><td colspan="5" class="empty">No inputs.</td></tr>`;
+    el("tree").innerHTML = "";
+  }
+
+  function render(): void {
+    const input = planSettings(state);
+    const plan = input.ok ? solve(input.settings) : undefined;
+    const warnList = input.ok ? [...(plan?.warnings ?? [])] : [input.error];
+    if (stateLoadError) warnList.push(stateLoadError);
+    const saveError = saveState(state);
+    if (saveError) warnList.push(saveError);
+
+    el("th-rate").textContent = unitLbl();
+    el("th-rate2").textContent = unitLbl();
+    el("warnings").innerHTML = warnList.map((w) => `<div class="warnbox">${esc(w)}</div>`).join("");
+    if (plan) renderPlan(plan);
+    else renderNoPlan();
 
     el<HTMLSelectElement>("item").value = state.item;
     el<HTMLInputElement>("amount").value = String(state.amount);
@@ -152,7 +166,10 @@ export function mountCalculator(onSend: () => void): void {
     render();
   });
 
-  el("to-planner").addEventListener("click", onSend);
+  // With no valid amount there is nothing to send; render() already shows why.
+  el("to-planner").addEventListener("click", () => {
+    if (planSettings(state).ok) onSend();
+  });
 
   render();
 }

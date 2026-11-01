@@ -63,13 +63,21 @@ describe("solve: 8 assembling machine 2 of green science", () => {
 });
 
 describe("solve: modes, imports, machines", () => {
-  it("rate mode is per minute", () => {
-    expect(targetRate({ ...base, mode: "rate", amount: 60 })).toBe(1);
+  it("rate mode is per second", () => {
+    expect(targetRate({ ...base, mode: "rate", amount: 1 })).toBe(1);
+    expect(targetRate({ ...base, mode: "rate", amount: 0.25 })).toBe(0.25);
   });
 
-  it("negative or junk amounts become zero", () => {
-    expect(targetRate({ ...base, amount: -3 })).toBe(0);
-    expect(targetRate({ ...base, amount: "abc" })).toBe(0);
+  it("zero is a valid target", () => {
+    expect(targetRate({ ...base, amount: 0 })).toBe(0);
+    expect(targetRate({ ...base, mode: "rate", amount: 0 })).toBe(0);
+  });
+
+  it("throws on negative or non-finite amounts instead of building for zero", () => {
+    expect(() => targetRate({ ...base, amount: -3 })).toThrow(/-3/);
+    expect(() => targetRate({ ...base, amount: NaN })).toThrow(/NaN/);
+    expect(() => targetRate({ ...base, mode: "rate", amount: Infinity })).toThrow(/Infinity/);
+    expect(() => solve({ ...base, amount: -1 })).toThrow(/amount/);
   });
 
   it("an imported plate becomes an input and drops its ore", () => {
@@ -92,7 +100,7 @@ describe("solve: modes, imports, machines", () => {
   });
 
   it("chemical plants run at speed 1 and fluids stay inputs", () => {
-    const plan = solve({ ...base, item: "plastic-bar", amount: 120, mode: "rate" });
+    const plan = solve({ ...base, item: "plastic-bar", amount: 2, mode: "rate" });
     // 2 plastic/s, 2 per craft (1 s): 1 craft/s -> 1 plant; 20 gas/s, 1 coal/s.
     expect(plan.build[0]?.exact).toBeCloseTo(1, 9);
     expect(plan.inputs.get("petroleum-gas")?.rate).toBeCloseTo(20, 9);
