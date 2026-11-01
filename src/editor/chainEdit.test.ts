@@ -5,7 +5,7 @@ import { planLayout } from "../blueprint/layout.ts";
 import { goldens } from "../testdata/goldens.ts";
 import type { ModuleGraph } from "../modules/types.ts";
 import { startChainEdit, staleWarnings } from "./chainEdit.ts";
-import { BELT_TIERS } from "../data/legacy.ts";
+import { beltByKey } from "../data/game.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import { laneSim } from "./laneSim.ts";
 
@@ -115,7 +115,7 @@ describe("staleWarnings", () => {
     expect(staleWarnings(edit.basis, sol, bp).map((w) => [w.kind, w.text])).toEqual([
       [
         "belt",
-        "Belt tier changed from Transport belt to Fast belt. Underground reach is different.",
+        "Belt tier changed from Transport belt to Fast transport belt. Underground reach is different.",
       ],
       ["inserter", "Inserter type changed from Fast inserter to Bulk inserter."],
       ["maxRow", "Maximum row length changed from 12 to 8."],
@@ -135,7 +135,7 @@ describe("chain edit of a multi-row chain", () => {
     const edit = startChainEdit(LY, sol, bp);
     expect(edit.ents.filter((e) => e.t === "machine")).toHaveLength(LY.counts.machine);
     expect(edit.ents.filter((e) => e.t === "splitter")).toHaveLength(LY.counts.splitter);
-    const sim = laneSim(edit.ents, BELT_TIERS[bp.belt]!.U);
+    const sim = laneSim(edit.ents, beltByKey(bp.belt).U);
     expect(sim.checks).toEqual([]);
     expect(sim.mixedSet.size).toBe(0);
   });

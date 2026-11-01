@@ -4,22 +4,25 @@
 // crashing later with a TypeError, and the settings are passed in rather than read from a global.
 // The target is already a number, and in "rate" mode already per second: parsing what the
 // player typed and converting from per minute happens in src/ui/planInput.ts (#19).
-import { RECIPES } from "../data/legacy.ts";
-import type { LegacyRecipe } from "../data/legacy.ts";
+// Recipes and machine speeds come from the game data (src/data/game.ts).
+import { machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
+import type { Recipe } from "../data/types.ts";
 
 export type AsmSpeed = "0.5" | "0.75" | "1.25";
 export type FurnaceKey = "stone" | "steel" | "electric";
 export type TargetMode = "buildings" | "rate";
 
-export const FURNACE: Record<FurnaceKey, readonly [string, number]> = {
-  stone: ["Stone furnace", 1],
-  steel: ["Steel furnace", 2],
-  electric: ["Electric furnace", 2],
+// The settings' old keys, as saved in fcp-state. Task 4 of the switch-over replaces them with
+// entity ids and deletes these tables.
+const ASM_ENTITY: Record<AsmSpeed, string> = {
+  "0.5": "assembling-machine-1",
+  "0.75": "assembling-machine-2",
+  "1.25": "assembling-machine-3",
 };
-export const ASM_NAME: Record<AsmSpeed, string> = {
-  "0.5": "Assembling machine 1",
-  "0.75": "Assembling machine 2",
-  "1.25": "Assembling machine 3",
+const FURN_ENTITY: Record<FurnaceKey, string> = {
+  stone: "stone-furnace",
+  steel: "steel-furnace",
+  electric: "electric-furnace",
 };
 
 export interface PlanSettings {
@@ -33,6 +36,7 @@ export interface PlanSettings {
 }
 
 export interface PlanMachine {
+  id: string; // entity name
   name: string;
   speed: number;
 }
@@ -72,31 +76,37 @@ export interface Plan {
 export const FLUID_ASM_WARNING =
   "Recipes with fluid ingredients need Assembling machine 2 or better. Those rows assume Assembling machine 2.";
 
-function recipeOf(id: string): LegacyRecipe {
-  const r = RECIPES[id];
+function recipeOf(id: string): Recipe {
+  const r = plannedRecipe(id);
   if (!r) throw new Error(`No recipe for "${id}"`);
   return r;
 }
 
+/**
+ * The building that makes `recipe` under these settings: the chosen furnace or assembler when it
+ * can, Assembling machine 2 (with a warning) for a fluid recipe when Assembling machine 1 is
+ * chosen, or the only machine that can (chemical plant).
+ */
 export function machineFor(
-  kind: LegacyRecipe["kind"],
+  recipe: Recipe,
   s: Pick<PlanSettings, "asm" | "furn">,
   warnings: Set<string>,
 ): PlanMachine {
-  if (kind === "smelt") {
-    const f = FURNACE[s.furn];
-    if (!f) throw new Error(`Unknown furnace "${s.furn}"`);
-    return { name: f[0], speed: f[1] };
-  }
-  if (kind === "chem") return { name: "Chemical plant", speed: 1 };
-  let sp = s.asm;
-  if (kind === "fluidcraft" && sp === "0.5") {
-    sp = "0.75";
+  const furn = FURN_ENTITY[s.furn];
+  if (!furn) throw new Error(`Unknown furnace "${String(s.furn)}"`);
+  const asm = ASM_ENTITY[s.asm];
+  if (!asm) throw new Error(`Unknown assembler speed "${String(s.asm)}"`);
+  const ids = machinesFor(recipe).map((m) => m.id);
+  let id: string;
+  if (ids.includes(furn)) id = furn;
+  else if (ids.includes(asm)) id = asm;
+  else if (ids.includes("assembling-machine-2")) {
+    id = "assembling-machine-2";
     warnings.add(FLUID_ASM_WARNING);
-  }
-  const name = ASM_NAME[sp];
-  if (!name) throw new Error(`Unknown assembler speed "${String(sp)}"`);
-  return { name, speed: parseFloat(sp) };
+  } else if (ids.length === 1) id = ids[0]!;
+  else throw new Error(`No machine for recipe "${recipe.id}"`);
+  const m = machine(id);
+  return { id: m.id, name: m.name, speed: m.speed };
 }
 
 /** Items per second of the final product. Throws on a negative or non-finite amount. */
@@ -105,8 +115,8 @@ export function targetRate(s: PlanSettings): number {
   const amt = s.amount;
   if (!Number.isFinite(amt) || amt < 0) throw new Error(`Invalid target amount ${String(amt)}`);
   if (s.mode === "rate") return amt;
-  const m = machineFor(r.kind, s, new Set());
-  return (amt * m.speed * r.out) / r.time;
+  const m = machineFor(r, s, new Set());
+  return (amt * m.speed * productOf(r, s.item)) / r.time;
 }
 
 export function solve(s: PlanSettings): Plan {
@@ -116,7 +126,7 @@ export function solve(s: PlanSettings): Plan {
   const inputs = new Map<string, InputRow>();
 
   function expand(id: string, rate: number, depth: number): PlanNode {
-    const recipe = RECIPES[id];
+    const recipe = plannedRecipe(id);
     const isLeaf = !recipe || (depth > 0 && imports.has(id));
     const node: PlanNode = {
       id,
@@ -132,15 +142,15 @@ export function solve(s: PlanSettings): Plan {
       inputs.set(id, cur);
       return node;
     }
-    const m = machineFor(recipe.kind, s, warnings);
-    const crafts = rate / recipe.out;
+    const m = machineFor(recipe, s, warnings);
+    const crafts = rate / productOf(recipe, id);
     node.machine = m;
     node.count = (crafts * recipe.time) / m.speed;
     const cur = made.get(id) ?? { rate: 0, depth: 0 };
     cur.rate += rate;
     cur.depth = Math.max(cur.depth, depth);
     made.set(id, cur);
-    for (const [inId, qty] of Object.entries(recipe.ins)) {
+    for (const [inId, qty] of Object.entries(recipe.ingredients)) {
       node.children.push(expand(inId, crafts * qty, depth + 1));
     }
     return node;
@@ -150,8 +160,8 @@ export function solve(s: PlanSettings): Plan {
   const build = [...made.entries()]
     .map(([id, v]) => {
       const r = recipeOf(id);
-      const m = machineFor(r.kind, s, warnings);
-      const exact = ((v.rate / r.out) * r.time) / m.speed;
+      const m = machineFor(r, s, warnings);
+      const exact = ((v.rate / productOf(r, id)) * r.time) / m.speed;
       return {
         id,
         rate: v.rate,
@@ -171,8 +181,9 @@ export function solve(s: PlanSettings): Plan {
 export function consumption(build: BuildRow[], id: string): number {
   let r = 0;
   for (const b of build) {
-    const qty = recipeOf(b.id).ins[id];
-    if (qty) r += (b.rate / recipeOf(b.id).out) * qty;
+    const rec = recipeOf(b.id);
+    const qty = rec.ingredients[id];
+    if (qty) r += (b.rate / productOf(rec, b.id)) * qty;
   }
   return r;
 }

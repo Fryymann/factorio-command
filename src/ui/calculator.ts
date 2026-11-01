@@ -1,6 +1,7 @@
 // Calculator tab: rendering and wiring. Ported from artifacts/FCP_v1-2.html, lines 549-652.
 // Rates are per second everywhere except here: the per-minute conversion happens in `rateStr`.
-import { RECIPES, isFluid, nm, short } from "../data/legacy.ts";
+import { isFluid, plannedRecipe } from "../data/game.ts";
+import { nm, short } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import { consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
@@ -10,16 +11,11 @@ import { rateStr, state, stateLoadError, unitLbl } from "./state.ts";
 import { createStateSaver, saveState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
 
-const checkTag = (id: string): string =>
-  RECIPES[id]?.check
-    ? ` <span class="tag" title="Compare with the in-game recipe">check</span>`
-    : "";
-
 export function mountCalculator(onSend: () => void): void {
   const saver = createStateSaver(saveState, stateLoadError);
 
   const importBtn = (id: string): string => {
-    if (id === state.item || !RECIPES[id]) return "";
+    if (id === state.item || !plannedRecipe(id)) return "";
     const on = state.imports.includes(id);
     const title = on
       ? "Build this here instead"
@@ -33,7 +29,7 @@ export function mountCalculator(onSend: () => void): void {
         .map((b) => {
           const pct = Math.min(1, b.exact / b.count);
           return `<tr>
-      <td><span class="item">${sw(b.id)}${esc(nm(b.id))}${checkTag(b.id)}</span></td>
+      <td><span class="item">${sw(b.id)}${esc(nm(b.id))}</span></td>
       <td class="num">${rateStr(b.rate)}</td>
       <td class="mach">${b.machine.name}</td>
       <td class="big"><span class="exact">${fmt(b.exact, 2)}</span>${b.count}<span class="util${pct > 0.999 ? " full" : ""}" title="${Math.round(pct * 100)}% busy"><i style="width:${pct * 100}%"></i></span></td>

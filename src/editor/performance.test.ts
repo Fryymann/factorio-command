@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bpSolution, resolveBpSettings } from "../blueprint/fromModules.ts";
 import { planLayout } from "../blueprint/layout.ts";
-import { BELT_TIERS } from "../data/legacy.ts";
+import { beltByKey } from "../data/game.ts";
 import { goldens } from "../testdata/goldens.ts";
 import * as act from "./actions.ts";
 import { edFromLayout } from "./fromLayout.ts";
@@ -25,7 +25,7 @@ function largeChain() {
   };
   const bp = resolveBpSettings({ belt: "60" }, "60");
   const doc = edFromLayout(planLayout(bpSolution(graph, bp), bp), bp);
-  return { doc, U: BELT_TIERS["60"]!.U };
+  return { doc, U: beltByKey("60").U };
 }
 
 describe("large chain", () => {
@@ -71,7 +71,7 @@ describe("undo restores exactly", () => {
   const fresh = () => {
     const bp = resolveBpSettings(undefined, "15");
     const doc = edFromLayout(planLayout(bpSolution(goldens.green.graph, bp), bp), bp);
-    return act.createSession(doc, BELT_TIERS["15"]!.U);
+    return act.createSession(doc, beltByKey("15").U);
   };
 
   it("puts a removed entity back at the same place in the list", () => {

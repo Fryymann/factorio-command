@@ -2,7 +2,8 @@
 // section of artifacts/FCP_v1-2.html (lines 654-1212). The maths lives in src/modules/; this file
 // only draws it and handles input. Saving goes through src/modules/storage.ts, which reports
 // failures; if saved layouts can't be read, nothing is written so they are never overwritten.
-import { BELT_TIERS, ITEMS, MACH, RECIPES, isFluid, nm, short } from "../data/legacy.ts";
+import { BELT_KEY_TIERS, BELTS, beltByKey, isFluid, machine, plannedRecipe } from "../data/game.ts";
+import { ITEMS, MACH_ENTITY, MACH_SHORT, nm, short } from "../data/legacy.ts";
 import type { MachineKey } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import { simulate } from "../modules/simulate.ts";
@@ -38,7 +39,7 @@ type Sel = { type: "node" | "edge"; id: string } | null;
 type MachineNode = Extract<PlacedNode, { kind: "machine" }>;
 type SourceNode = Extract<PlacedNode, { kind: "source" }>;
 
-const RECIPE_IDS = PICKABLE.filter((id) => RECIPES[id]);
+const RECIPE_IDS = PICKABLE.filter((id) => plannedRecipe(id));
 const ALL_IDS = [...PICKABLE, ...Object.keys(ITEMS).filter((id) => !PICKABLE.includes(id))];
 
 function nodeLabel(n: PlacedNode | undefined): string {
@@ -111,7 +112,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         .join("");
       return `<div class="${cls}${bad ? " bad" : ""}" ${pos}>
       <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(nm(n.item))}</span></span><span class="bn-pct" title="How busy these buildings are">${Math.round(util * 100)}%</span></div>
-      <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${MACH[n.mach].short}</span></div>
+      <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${MACH_SHORT[n.mach]}</span></div>
       <div class="bn-sec"><span>In</span><span>got / need ${u}</span></div>${rows}
       <div class="bn-out"><span>Out</span><span class="v">${rateStr(r.A)} / ${rateStr(r.maxOut)} max</span></div>
       <span class="port in"></span><span class="port out" data-port="${n.id}" title="Drag to another block to add a belt"></span></div>`;
@@ -267,7 +268,10 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
           `${b} doesn't use ${item}, so the belt from ${a} carries nothing.`,
         ]);
       else if (s.beltLimited) {
-        const tier = BELT_TIERS[String(e.belt)]?.name ?? "belt";
+        const key = String(e.belt);
+        const tier = ["15", "30", "45", "60"].includes(key)
+          ? beltByKey(key).name
+          : (BELTS[key]?.name ?? "belt");
         list.push([
           `edge:${e.id}`,
           `Belt ${a} → ${b} is full: it needs ${rateStr(s.wanted)}${u}, a ${tier} carries ${rateStr(s.cap)}${u}. Use a faster belt or add a second one.`,
@@ -282,7 +286,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     const bld: Record<string, number> = {};
     for (const n of L.nodes) {
       if (n.kind !== "machine") continue;
-      const k = MACH[n.mach].name;
+      const k = machine(MACH_ENTITY[n.mach]).name;
       bld[k] = (bld[k] ?? 0) + (Number(n.count) || 0);
     }
     el("pl-totals").innerHTML = Object.entries(bld)
@@ -310,7 +314,8 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         m.item,
       )
         .map(
-          (k) => `<option value="${k}"${k === m.mach ? " selected" : ""}>${MACH[k].name}</option>`,
+          (k) =>
+            `<option value="${k}"${k === m.mach ? " selected" : ""}>${machine(MACH_ENTITY[k]).name}</option>`,
         )
         .join("")}</select></div>
       <div class="stats" id="pl-stats"></div>
@@ -356,12 +361,10 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       ${
         fluid
           ? `<p class="help">Fluids go by pipe. Pipe throughput isn't limited here.</p>`
-          : `<div class="field"><label for="pf-belt">Belt type</label><select id="pf-belt">${Object.entries(
-              BELT_TIERS,
-            )
+          : `<div class="field"><label for="pf-belt">Belt type</label><select id="pf-belt">${BELT_KEY_TIERS()
               .map(
                 ([k, v]) =>
-                  `<option value="${k}"${k === String(e.belt) ? " selected" : ""}>${v.name} (${fmt(Number(k) * Number(state.unit))}${unitLbl()})</option>`,
+                  `<option value="${k}"${k === String(e.belt) ? " selected" : ""}>${v.name} (${fmt(v.itemsPerSecond * Number(state.unit))}${unitLbl()})</option>`,
               )
               .join("")}</select></div>`
       }
@@ -687,7 +690,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     Object.keys(ITEMS).filter((id) => !PICKABLE.includes(id)),
   )}</optgroup>`;
   const syncAddBtns = (): void => {
-    el<HTMLButtonElement>("pl-add-machine").disabled = !RECIPES[addItem.value];
+    el<HTMLButtonElement>("pl-add-machine").disabled = !plannedRecipe(addItem.value);
   };
   addItem.addEventListener("change", syncAddBtns);
   syncAddBtns();
@@ -709,7 +712,8 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
   }
   el("pl-add-machine").addEventListener("click", () => {
     const item = addItem.value;
-    if (RECIPES[item]) addNode({ kind: "machine", item, count: 1, mach: defaultMach(item, state) });
+    if (plannedRecipe(item))
+      addNode({ kind: "machine", item, count: 1, mach: defaultMach(item, state) });
   });
   el("pl-add-source").addEventListener("click", () =>
     addNode({ kind: "source", item: addItem.value, rate: 15 / 2 }),

@@ -8,7 +8,8 @@ import { blueprintObject } from "../blueprint/export.ts";
 import { encodeBlueprint } from "../blueprint/encode.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import type { Layout, LayoutEnt } from "../blueprint/layout.ts";
-import { BELT_TIERS, INS_KINDS, ITEMS, MACH, isFluid, nm, short } from "../data/legacy.ts";
+import { beltByKey, isFluid } from "../data/game.ts";
+import { INS_KINDS, ITEMS, MACH_SHORT, nm, short } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import * as actions from "../editor/actions.ts";
 import type { EditSession, Tool } from "../editor/actions.ts";
@@ -106,11 +107,7 @@ export function mountBlueprint(): BlueprintTab {
     L.bp = bp;
     return bp;
   }
-  const tierOf = (bp: BpSettings) => {
-    const t = BELT_TIERS[bp.belt];
-    if (!t) throw new Error(`Unknown belt tier "${bp.belt}"`);
-    return t;
-  };
+  const tierOf = (bp: BpSettings) => beltByKey(bp.belt);
 
   let warnings: string[] = [];
   let staleButtons = false;
@@ -138,7 +135,7 @@ export function mountBlueprint(): BlueprintTab {
         ? `<optgroup label="Single module">${ms
             .map(
               (n) =>
-                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}` : "")} · ${MACH[n.kind === "machine" ? n.mach : "am2"].short}</option>`,
+                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}` : "")} · ${MACH_SHORT[n.kind === "machine" ? n.mach : "am2"]}</option>`,
             )
             .join("")}</optgroup>`
         : "");

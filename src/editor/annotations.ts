@@ -1,7 +1,7 @@
 // Labels for a whole-chain edit, so edit mode keeps what the generated view shows: where each
 // item enters, where each product belt starts, which rows make what, and what comes out.
 // Derived from the entities and their lane simulation, so they follow the edits.
-import { RECIPES } from "../data/legacy.ts";
+import { plannedRecipe } from "../data/game.ts";
 import { DV, tkey } from "./geometry.ts";
 import type { Check, LaneSimResult } from "./laneSim.ts";
 import type { EdEnt } from "./types.ts";
@@ -72,7 +72,8 @@ export function annotate(ents: EdEnt[], sim: LaneSimResult): Annotations {
 
   const consumed = new Set<string>();
   for (const e of ents)
-    if (e.t === "machine") for (const i of Object.keys(RECIPES[e.item]?.ins ?? {})) consumed.add(i);
+    if (e.t === "machine")
+      for (const i of Object.keys(plannedRecipe(e.item)?.ingredients ?? {})) consumed.add(i);
   const out: Annotations = { feeds: [], products: [], outputs: [], rows: [] };
   for (const e of ents) {
     if (e.t === "belt" && e.feed) out.feeds.push({ x: e.x, y: e.y, item: e.feed });

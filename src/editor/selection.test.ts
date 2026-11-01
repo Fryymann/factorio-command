@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bpSolution, resolveBpSettings } from "../blueprint/fromModules.ts";
 import { planLayout } from "../blueprint/layout.ts";
-import { BELT_TIERS } from "../data/legacy.ts";
+import { beltByKey } from "../data/game.ts";
 import { goldens } from "../testdata/goldens.ts";
 import * as act from "./actions.ts";
 import { annotate, groupChecks } from "./annotations.ts";
@@ -12,7 +12,7 @@ import { canMoveGroup, deleteGroup, moveGroup, selectInBox } from "./selection.t
 function fresh(name: "green" | "blue" = "green") {
   const bp = resolveBpSettings(undefined, "15");
   const doc = edFromLayout(planLayout(bpSolution(goldens[name].graph, bp), bp), bp);
-  return act.createSession(doc, BELT_TIERS["15"]!.U);
+  return act.createSession(doc, beltByKey("15").U);
 }
 
 // Green science layout (see layout.test.ts): the transport-belt row is y=46..54 with its machine

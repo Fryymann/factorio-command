@@ -2,7 +2,8 @@
 // artifacts/FCP_v1-2.html (lines 737-821).
 // Pass 1 (downstream -> upstream): how much each block is asked to make.
 // Pass 2 (upstream -> downstream): how much actually arrives, limited by supply and belts.
-import { MACH, RECIPES, isFluid } from "../data/legacy.ts";
+import { beltByKey, isFluid, machine, plannedRecipe, productOf } from "../data/game.ts";
+import { MACH_ENTITY } from "../data/legacy.ts";
 import type { ModuleEdge, ModuleGraph, ModuleNode } from "./types.ts";
 
 const EPS = 1e-6;
@@ -92,13 +93,13 @@ export function simulate(L: ModuleGraph): Simulation {
       missing: [],
     };
     if (n.kind === "machine") {
-      const rec = RECIPES[n.item];
-      const mach = MACH[n.mach];
+      const rec = plannedRecipe(n.item);
+      const machId = MACH_ENTITY[n.mach];
       if (!rec) throw new Error(`simulate: unknown recipe ${n.item}`);
-      if (!mach) throw new Error(`simulate: unknown machine ${n.mach}`);
-      const cps = (Math.max(0, Number(n.count) || 0) * mach.speed) / rec.time;
-      r.maxOut = cps * rec.out;
-      for (const [i, qty] of Object.entries(rec.ins)) {
+      if (!machId) throw new Error(`simulate: unknown machine ${n.mach}`);
+      const cps = (Math.max(0, Number(n.count) || 0) * machine(machId).speed) / rec.time;
+      r.maxOut = cps * productOf(rec, n.item);
+      for (const [i, qty] of Object.entries(rec.ingredients)) {
         r.need[i] = cps * qty;
         r.recv[i] = 0;
       }
@@ -120,7 +121,7 @@ export function simulate(L: ModuleGraph): Simulation {
     const item = itemOf(e.from);
     E[e.id] = {
       item,
-      cap: item && isFluid(item) ? Infinity : Number(e.belt || 15),
+      cap: item && isFluid(item) ? Infinity : beltByKey(e.belt || 15).itemsPerSecond,
       wanted: 0,
       req: 0,
       flow: 0,

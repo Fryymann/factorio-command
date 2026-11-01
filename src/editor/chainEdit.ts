@@ -3,7 +3,8 @@
 // A chain edit is never regenerated quietly; the only ways out are editing on or discarding.
 import type { BpSettings, Solution } from "../blueprint/fromModules.ts";
 import type { Layout } from "../blueprint/layout.ts";
-import { BELT_TIERS, INSERTERS, MACH, short } from "../data/legacy.ts";
+import { BELTS, beltByKey, machine } from "../data/game.ts";
+import { INSERTERS, MACH_ENTITY, short } from "../data/legacy.ts";
 import type { MachineKey } from "../data/legacy.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import type { EdEnt } from "./types.ts";
@@ -44,7 +45,8 @@ export interface StaleWarning {
   text: string;
 }
 
-const beltName = (k: string) => BELT_TIERS[k]?.name ?? k;
+const beltName = (k: string) =>
+  ["15", "30", "45", "60"].includes(k) ? beltByKey(k).name : (BELTS[k]?.name ?? k);
 const insName = (k: string) => (INSERTERS as Record<string, { name: string }>)[k]?.name ?? k;
 
 /**
@@ -82,7 +84,7 @@ export function staleWarnings(
         out.push({
           kind: "machine",
           item: id,
-          text: `${nm} is now made in ${MACH[is.mach].name} instead of ${MACH[was.mach].name}.`,
+          text: `${nm} is now made in ${machine(MACH_ENTITY[is.mach]).name} instead of ${machine(MACH_ENTITY[was.mach]).name}.`,
         });
     }
   }

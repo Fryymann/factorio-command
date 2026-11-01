@@ -1,7 +1,8 @@
 // Module graph -> layout input. Ported from artifacts/FCP_v1-2.html (lines 1424-1473).
 // Unlike the artifact, nothing here reads globals or writes back into the saved layout.
 import { fmt } from "../data/format.ts";
-import { MACH, short } from "../data/legacy.ts";
+import { machine } from "../data/game.ts";
+import { MACH_ENTITY, short } from "../data/legacy.ts";
 import type { MachineKey } from "../data/legacy.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { Simulation } from "../modules/simulate.ts";
@@ -73,9 +74,10 @@ export function graphDepth(S: Simulation): (id: string) => number {
 
 export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntry {
   const r = S.N[n.id];
-  const m = MACH[n.mach];
+  const machId = MACH_ENTITY[n.mach];
   if (!r) throw new Error(`bpEntry: no simulation result for node ${n.id}`);
-  if (!m) throw new Error(`bpEntry: unknown machine ${n.mach}`);
+  if (!machId) throw new Error(`bpEntry: unknown machine ${n.mach}`);
+  const m = machine(machId);
   const cnt = Number(n.count) || 0;
   const T = r.T > 0 ? r.T : r.maxOut;
   return {
@@ -84,7 +86,7 @@ export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntr
     depth,
     exact: r.maxOut > 0 ? (cnt * T) / r.maxOut : 0,
     count: Math.ceil(cnt - 1e-9),
-    machine: { name: m.name, speed: m.speed, ent: m.ent, size: m.size, burner: m.burner },
+    machine: { name: m.name, speed: m.speed, ent: m.id, size: m.size, burner: m.burner },
     mach: n.mach,
   };
 }
