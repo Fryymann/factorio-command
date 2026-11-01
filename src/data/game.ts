@@ -50,18 +50,6 @@ export const PLANNED: readonly string[] = [
 ];
 const PLANNED_SET = new Set(PLANNED);
 
-// The artifact's piercing rounds recipe, from before Factorio 2.0.46 made it cheaper. Kept only
-// so that switching to game data changes no number by itself; the switch-over's last commit
-// removes it and uses the game's recipe.
-const PIERCING_PRE_2_0_46: Recipe = {
-  id: "piercing-rounds-magazine",
-  name: "Piercing rounds magazine",
-  categories: ["crafting"],
-  time: 3,
-  ingredients: { "firearm-magazine": 1, "steel-plate": 1, "copper-plate": 5 },
-  products: { "piercing-rounds-magazine": 1 },
-};
-
 // The artifact's ingredient order for the 7 planned recipes where it differs from the game's. The
 // blueprint layout places bus columns and the Modules graph places blocks in ingredient order, so
 // the game's order gives different (still valid) layouts: blue science gets 6 more belts and 2
@@ -100,7 +88,6 @@ export const isFluid = (id: string): boolean => item(id).fluid;
 /** The recipe the planner uses to make `item`, or undefined if the item is a raw input. */
 export function plannedRecipe(id: string): Recipe | undefined {
   if (!PLANNED_SET.has(id)) return undefined;
-  if (id === "piercing-rounds-magazine") return PIERCING_PRE_2_0_46;
   const cached = ordered.get(id);
   if (cached) return cached;
   const r = GAME.recipes[id];

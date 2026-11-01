@@ -31,6 +31,15 @@ describe("plannedRecipe", () => {
     for (const id of PLANNED) expect(plannedRecipe(id), id).toBeDefined();
   });
 
+  it("uses the game's piercing rounds recipe, not the artifact's", () => {
+    // Factorio 2.0.46 changelog: "Changed piercing ammo recipe to be cheaper." The artifact had
+    // the older 3 s; 1 magazine, 1 steel, 5 copper -> 1.
+    const r = plannedRecipe("piercing-rounds-magazine")!;
+    expect(r.time).toBe(6);
+    expect(r.ingredients).toEqual({ "firearm-magazine": 2, "steel-plate": 1, "copper-plate": 2 });
+    expect(productOf(r, "piercing-rounds-magazine")).toBe(2);
+  });
+
   it("throws when asked for a product the recipe doesn't make", () => {
     expect(() => productOf(plannedRecipe("iron-gear-wheel")!, "copper-cable")).toThrow();
   });

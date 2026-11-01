@@ -117,6 +117,17 @@ describe("solve: modes, imports, machines", () => {
     expect(plan.build.find((b) => b.id === "iron-plate")?.exact).toBeCloseTo(17.6, 9);
   });
 
+  it("military science uses the game's piercing rounds recipe", () => {
+    // 1 AM2 x 0.75 / 10 s = 0.075 crafts/s (0.15 packs/s). Each craft takes 1 piercing magazine:
+    // 0.075/s. Piercing rounds (Factorio 2.1.24): 6 s; 2 firearm magazines, 1 steel, 2 copper -> 2,
+    // so 0.0375 crafts/s and 0.075 copper/s. Piercing rounds are military science's only copper
+    // user. The artifact's pre-2.0.46 recipe (1 magazine, 1 steel, 5 copper -> 1) gave 0.375/s.
+    const plan = solve({ ...base, item: "military-science-pack", amount: 1 });
+    const copper = plan.build.find((b) => b.id === "copper-plate")!;
+    expect(copper.rate).toBeCloseTo(0.075, 12);
+    expect(plan.build.find((b) => b.id === "piercing-rounds-magazine")!.exact).toBeCloseTo(0.3, 9);
+  });
+
   it("throws on unknown input instead of guessing", () => {
     expect(() => solve({ ...base, item: "nope" })).toThrow(/nope/);
     expect(() => solve({ ...base, asm: "9" as never })).toThrow(/assembler/);
