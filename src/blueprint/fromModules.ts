@@ -1,8 +1,7 @@
 // Module graph -> layout input. Ported from artifacts/FCP_v1-2.html (lines 1424-1473).
 // Unlike the artifact, nothing here reads globals or writes back into the saved layout.
 import { fmt } from "../data/format.ts";
-import { MACH, short } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
+import { machine, itemName } from "../data/game.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { Simulation } from "../modules/simulate.ts";
 import type { MachineNode, ModuleGraph, ModuleNode } from "../modules/types.ts";
@@ -38,7 +37,7 @@ export interface BuildEntry {
   exact: number; // fractional machine count
   count: number;
   machine: BuildMachine;
-  mach: MachineKey;
+  mach: string; // machine entity name
 }
 
 export interface Solution {
@@ -73,9 +72,8 @@ export function graphDepth(S: Simulation): (id: string) => number {
 
 export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntry {
   const r = S.N[n.id];
-  const m = MACH[n.mach];
   if (!r) throw new Error(`bpEntry: no simulation result for node ${n.id}`);
-  if (!m) throw new Error(`bpEntry: unknown machine ${n.mach}`);
+  const m = machine(n.mach);
   const cnt = Number(n.count) || 0;
   const T = r.T > 0 ? r.T : r.maxOut;
   return {
@@ -84,14 +82,14 @@ export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntr
     depth,
     exact: r.maxOut > 0 ? (cnt * T) / r.maxOut : 0,
     count: Math.ceil(cnt - 1e-9),
-    machine: { name: m.name, speed: m.speed, ent: m.ent, size: m.size, burner: m.burner },
+    machine: { name: m.name, speed: m.speed, ent: m.id, size: m.size, burner: m.burner },
     mach: n.mach,
   };
 }
 
 function nodeLabel(n: ModuleNode): string {
-  if (n.kind === "machine") return `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}`;
-  if (n.kind === "source") return `${short(n.item)} source`;
+  if (n.kind === "machine") return `${fmt(Number(n.count) || 0, 2)}× ${itemName(n.item)}`;
+  if (n.kind === "source") return `${itemName(n.item)} source`;
   return "Output";
 }
 
@@ -124,7 +122,7 @@ export function bpSolution(L: ModuleGraph, bp: BpSettings): Solution {
         title: `Module · ${nodeLabel(n)}`,
         icon: n.item,
         final: n.item,
-        label: `${short(n.item)} module`,
+        label: `${itemName(n.item)} module`,
       };
     }
   }
@@ -139,7 +137,7 @@ export function bpSolution(L: ModuleGraph, bp: BpSettings): Solution {
     }
     if (c.mach !== e.mach)
       warn.push(
-        `${short(e.id)} is made in more than one building type. The whole-chain layout uses ${c.machine.name} for all of them.`,
+        `${itemName(e.id)} is made in more than one building type. The whole-chain layout uses ${c.machine.name} for all of them.`,
       );
     c.rate += e.rate;
     c.exact += e.exact;

@@ -5,12 +5,12 @@ import { planLayout } from "../blueprint/layout.ts";
 import { goldens } from "../testdata/goldens.ts";
 import type { ModuleGraph } from "../modules/types.ts";
 import { startChainEdit, staleWarnings } from "./chainEdit.ts";
-import { BELT_TIERS } from "../data/legacy.ts";
+import { belt } from "../data/game.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import { laneSim } from "./laneSim.ts";
 
 function start(name: "green" | "blue" = "green") {
-  const bp = resolveBpSettings(undefined, "15");
+  const bp = resolveBpSettings(undefined, "transport-belt");
   const sol = bpSolution(goldens[name].graph, bp);
   const LY = planLayout(sol, bp);
   return { bp, sol, LY, edit: startChainEdit(LY, sol, bp) };
@@ -26,16 +26,16 @@ describe("startChainEdit", () => {
     const { LY, bp, edit } = start();
     expect(edit.ents).toEqual(edFromLayout(LY, bp).ents);
     expect(edit.basis).toEqual({
-      belt: "15",
+      belt: "transport-belt",
       ins: "fast",
       maxRow: 12,
       machines: {
-        "logistic-science-pack": { count: 8, mach: "am2" },
-        inserter: { count: 1, mach: "am2" },
-        "transport-belt": { count: 1, mach: "am2" },
-        "iron-gear-wheel": { count: 1, mach: "am2" },
-        "electronic-circuit": { count: 1, mach: "am2" },
-        "copper-cable": { count: 1, mach: "am2" },
+        "logistic-science-pack": { count: 8, mach: "assembling-machine-2" },
+        inserter: { count: 1, mach: "assembling-machine-2" },
+        "transport-belt": { count: 1, mach: "assembling-machine-2" },
+        "iron-gear-wheel": { count: 1, mach: "assembling-machine-2" },
+        "electronic-circuit": { count: 1, mach: "assembling-machine-2" },
+        "copper-cable": { count: 1, mach: "assembling-machine-2" },
       },
     });
   });
@@ -54,7 +54,7 @@ describe("staleWarnings", () => {
       {
         kind: "count",
         item: "logistic-science-pack",
-        text: "Logistic science machine count changed from 8 to 10.",
+        text: "Logistic science pack machine count changed from 8 to 10.",
       },
     ]);
   });
@@ -81,7 +81,7 @@ describe("staleWarnings", () => {
     const older = start().edit;
     const basis = { ...older.basis, machines: { ...older.basis.machines } };
     delete basis.machines["pipe"];
-    basis.machines["inserter"] = { count: 1, mach: "am2" };
+    basis.machines["inserter"] = { count: 1, mach: "assembling-machine-2" };
     const withPipe = { build: [...sol.build, { ...sol.build[0]!, id: "pipe", count: 2 }] };
     expect(staleWarnings(basis, withPipe, bp)).toEqual([
       { kind: "added", item: "pipe", text: "Pipe was added to the chain (2 machines)." },
@@ -95,7 +95,9 @@ describe("staleWarnings", () => {
       {
         ...g,
         nodes: g.nodes.map((n) =>
-          n.kind === "machine" && n.item === "inserter" ? { ...n, mach: "am3" as const } : n,
+          n.kind === "machine" && n.item === "inserter"
+            ? { ...n, mach: "assembling-machine-3" }
+            : n,
         ),
       },
       bp,
@@ -111,11 +113,11 @@ describe("staleWarnings", () => {
 
   it("reports belt tier, inserter type and max row changes", () => {
     const { edit, sol } = start();
-    const bp: BpSettings = { scope: "all", belt: "30", ins: "bulk", maxRow: 8 };
+    const bp: BpSettings = { scope: "all", belt: "fast-transport-belt", ins: "bulk", maxRow: 8 };
     expect(staleWarnings(edit.basis, sol, bp).map((w) => [w.kind, w.text])).toEqual([
       [
         "belt",
-        "Belt tier changed from Transport belt to Fast belt. Underground reach is different.",
+        "Belt tier changed from Transport belt to Fast transport belt. Underground reach is different.",
       ],
       ["inserter", "Inserter type changed from Fast inserter to Bulk inserter."],
       ["maxRow", "Maximum row length changed from 12 to 8."],
@@ -127,7 +129,7 @@ describe("chain edit of a multi-row chain", () => {
   // Plan section 2: several rows, a product split over two rows (part/parts), and bus columns
   // with splitters must all come through edFromLayout and still simulate cleanly.
   it("a split product keeps every machine fed and every lane clean", () => {
-    const bp = resolveBpSettings({ maxRow: 4 }, "15");
+    const bp = resolveBpSettings({ maxRow: 4 }, "transport-belt");
     const sol = bpSolution(goldens.green.graph, bp);
     const LY = planLayout(sol, bp);
     expect(LY.rows.filter((r) => r.parts === 2)).toHaveLength(2); // the 8 packs, as 4 + 4
@@ -135,7 +137,7 @@ describe("chain edit of a multi-row chain", () => {
     const edit = startChainEdit(LY, sol, bp);
     expect(edit.ents.filter((e) => e.t === "machine")).toHaveLength(LY.counts.machine);
     expect(edit.ents.filter((e) => e.t === "splitter")).toHaveLength(LY.counts.splitter);
-    const sim = laneSim(edit.ents, BELT_TIERS[bp.belt]!.U);
+    const sim = laneSim(edit.ents, belt(bp.belt).U);
     expect(sim.checks).toEqual([]);
     expect(sim.mixedSet.size).toBe(0);
   });

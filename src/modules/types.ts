@@ -1,12 +1,11 @@
 // Saved module-graph shape (localStorage `fcp-layouts`), as written by artifacts/FCP_v1-2.html.
-import type { MachineKey } from "../data/legacy.ts";
 
 export interface MachineNode {
   id: string;
   kind: "machine";
   item: string;
   count: number | string;
-  mach: MachineKey;
+  mach: string; // machine entity name, e.g. "assembling-machine-2"
 }
 export interface SourceNode {
   id: string;
@@ -25,7 +24,7 @@ export interface ModuleEdge {
   id: string;
   from: string;
   to: string;
-  belt: string | number;
+  belt: string; // belt entity name, e.g. "transport-belt"
 }
 
 export interface ModuleGraph {

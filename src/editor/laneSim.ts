@@ -4,7 +4,7 @@
 // (side-load) puts everything on the near lane; inserters drop on the far lane (on the right
 // lane when lined up with the belt); undergrounds carry both lanes through; splitters mix their
 // two inputs onto both outputs, lanes kept.
-import { RECIPES, isFluid, short } from "../data/legacy.ts";
+import { isFluid, plannedRecipe, itemName } from "../data/game.ts";
 import { DV, LEFT, OPP, tilesOf, tkey } from "./geometry.ts";
 import type { Dir, EdEnt } from "./types.ts";
 
@@ -222,9 +222,9 @@ export function laneSim(ents: EdEnt[], U: number): LaneSimResult {
   const checks: Check[] = [];
   for (const m of ents) {
     if (m.t !== "machine") continue;
-    const rec = RECIPES[m.item];
+    const rec = plannedRecipe(m.item);
     if (!rec) throw new Error(`laneSim: unknown recipe ${m.item}`);
-    const need = Object.keys(rec.ins).filter((i) => !isFluid(i));
+    const need = Object.keys(rec.ingredients).filter((i) => !isFluid(i));
     if (/^(stone|steel)-furnace$/.test(m.ent)) need.push("coal");
     const got = machIn.get(m) ?? new Set<string>();
     const missing = need.filter((i) => !got.has(i));
@@ -234,14 +234,14 @@ export function laneSim(ents: EdEnt[], U: number): LaneSimResult {
         x: m.x + 1,
         y: m.y + 1,
         m,
-        text: `${short(m.item)} machine is missing ${missing.map(short).join(", ")}.`,
+        text: `${itemName(m.item)} machine is missing ${missing.map(itemName).join(", ")}.`,
       });
     if (!hasOut)
       checks.push({
         x: m.x + 1,
         y: m.y + 1,
         m,
-        text: `${short(m.item)} machine has no output inserter.`,
+        text: `${itemName(m.item)} machine has no output inserter.`,
       });
   }
   const mixed: EdEnt[] = [];

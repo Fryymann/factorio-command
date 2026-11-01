@@ -1,6 +1,8 @@
 // Calculator state in localStorage (`fcp-state`). The only place the calculator touches the
 // browser's storage. Ported from artifacts/FCP_v1-2.html, lines 496-498.
-import type { AsmSpeed, FurnaceKey, PlanSettings, TargetMode } from "../solver/solve.ts";
+import { plannedRecipe } from "../data/game.ts";
+import { migrateAsm, migrateBelt, migrateFurn } from "../data/savedKeys.ts";
+import type { PlanSettings, TargetMode } from "../solver/solve.ts";
 
 export const STATE_KEY = "fcp-state";
 
@@ -12,27 +14,32 @@ const LOAD_ERROR = `Saved calculator settings couldn't be read, so defaults are 
  * mode it is per minute; `planSettings` (planInput.ts) turns it into solver input.
  */
 export interface CalcState extends Omit<PlanSettings, "amount"> {
+  /** Shape of the saved data. 2: machines and belts by entity name. Absent: the artifact's keys. */
+  version: 2;
   amount: number | string;
-  belt: string;
+  belt: string; // belt entity name
   unit: "60" | "1";
 }
 
 export const DEFAULT_STATE: CalcState = {
+  version: 2,
   item: "logistic-science-pack",
   amount: 8,
   mode: "buildings",
-  asm: "0.75",
-  furn: "steel",
-  belt: "15",
+  asm: "assembling-machine-2",
+  furn: "steel-furnace",
+  belt: "transport-belt",
   unit: "60",
   imports: [],
 };
 
-const ASMS: AsmSpeed[] = ["0.5", "0.75", "1.25"];
-const FURNS: FurnaceKey[] = ["stone", "steel", "electric"];
 const MODES: TargetMode[] = ["buildings", "rate"];
 
-/** Keeps every field of `saved` that has a valid value; anything else falls back to the default. */
+/**
+ * Keeps every field of `saved` that has a valid value. An unknown product, machine or belt falls
+ * back to the default with a warning naming it; the artifact's keys ("0.75", "steel", "15") are
+ * mapped to entity names. Other fields that don't fit fall back silently, as before.
+ */
 export function parseState(raw: string | null): { state: CalcState; error?: string } {
   const state: CalcState = { ...DEFAULT_STATE, imports: [] };
   if (raw === null) return { state };
@@ -44,15 +51,42 @@ export function parseState(raw: string | null): { state: CalcState; error?: stri
   }
   if (!d || typeof d !== "object") return { state };
   const o = d as Record<string, unknown>;
-  if (typeof o.item === "string") state.item = o.item;
+  if (o.version !== undefined && o.version !== 2) {
+    return {
+      state,
+      error: `Saved calculator settings are from a newer version of the planner, so defaults are shown. ${KEPT}`,
+    };
+  }
+  const unknown: string[] = [];
+  const pick = <T>(
+    what: string,
+    v: unknown,
+    read: (v: unknown) => T | null,
+    set: (x: T) => void,
+  ) => {
+    if (v === undefined) return;
+    const x = read(v);
+    if (x === null) unknown.push(`${what} ${JSON.stringify(v)}`);
+    else set(x);
+  };
+  pick(
+    "product",
+    o.item,
+    (v) => (typeof v === "string" && plannedRecipe(v) ? v : null),
+    (x) => (state.item = x),
+  );
   if (typeof o.amount === "number" || typeof o.amount === "string") state.amount = o.amount;
   if (MODES.includes(o.mode as TargetMode)) state.mode = o.mode as TargetMode;
-  if (ASMS.includes(o.asm as AsmSpeed)) state.asm = o.asm as AsmSpeed;
-  if (FURNS.includes(o.furn as FurnaceKey)) state.furn = o.furn as FurnaceKey;
-  if (typeof o.belt === "string") state.belt = o.belt;
+  pick("assembler", o.asm, migrateAsm, (x) => (state.asm = x));
+  pick("furnace", o.furn, migrateFurn, (x) => (state.furn = x));
+  pick("belt", o.belt, migrateBelt, (x) => (state.belt = x));
   if (o.unit === "60" || o.unit === "1") state.unit = o.unit;
   if (Array.isArray(o.imports)) state.imports = o.imports.filter((x) => typeof x === "string");
-  return { state };
+  if (unknown.length === 0) return { state };
+  return {
+    state,
+    error: `Saved calculator settings name things this version doesn't know (${unknown.join(", ")}), so defaults are used for those. ${KEPT}`,
+  };
 }
 
 export function loadState(): { state: CalcState; error?: string } {

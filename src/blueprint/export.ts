@@ -9,7 +9,7 @@
 // The other three directions follow the same rule but haven't been seen in game.
 import { BLUEPRINT_VERSION } from "./encode.ts";
 import { INS_KINDS } from "../data/legacy.ts";
-import type { BeltTier } from "../data/legacy.ts";
+import type { BeltTier } from "../data/game.ts";
 import { foot, OPP } from "../editor/geometry.ts";
 import type { EdEnt } from "../editor/types.ts";
 import type { Dir } from "./layout.ts";
@@ -63,17 +63,17 @@ export function blueprintObject(
     const [w, h] = foot(e);
     const position = { x: e.x + w / 2, y: e.y + h / 2 };
     if (e.t === "belt")
-      out.push({ entity_number: n++, name: tier.belt, position, direction: DIR16[e.dir] });
+      out.push({ entity_number: n++, name: tier.id, position, direction: DIR16[e.dir] });
     else if (e.t === "ug")
       out.push({
         entity_number: n++,
-        name: tier.ug,
+        name: tier.underground,
         position,
         direction: DIR16[e.dir],
         type: e.io,
       });
     else if (e.t === "splitter")
-      out.push({ entity_number: n++, name: tier.sp, position, direction: DIR16[e.dir] });
+      out.push({ entity_number: n++, name: tier.splitter, position, direction: DIR16[e.dir] });
     else if (e.t === "ins")
       out.push({
         entity_number: n++,

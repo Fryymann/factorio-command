@@ -1,9 +1,9 @@
 // Calculator chain -> connected module graph, and the small rules the Modules tab needs.
 // Ported from `layoutFromCalc`, `defaultMach`, `machOptions` and `newLayout`
 // (artifacts/FCP_v1-2.html, lines 664-678, 689 and 702-735). Pure: ids come from the caller.
-import { MACH, RECIPES } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
-import type { AsmSpeed, FurnaceKey, Plan } from "../solver/solve.ts";
+import { machinesFor, plannedRecipe } from "../data/game.ts";
+import { machineFor } from "../solver/solve.ts";
+import type { AssemblerId, FurnaceId, Plan } from "../solver/solve.ts";
 import type { MachineNode, ModuleEdge, ModuleNode, OutputNode, SourceNode } from "./types.ts";
 import type { SavedLayout } from "./storage.ts";
 
@@ -22,27 +22,20 @@ export interface PlacedLayout extends SavedLayout {
   needsFit?: boolean;
 }
 
-export const ASM_KEY: Record<AsmSpeed, MachineKey> = { "0.5": "am1", "0.75": "am2", "1.25": "am3" };
-export const MACH_KEYS = Object.keys(MACH) as MachineKey[];
-
 function recipeOf(item: string) {
-  const r = RECIPES[item];
+  const r = plannedRecipe(item);
   if (!r) throw new Error(`No recipe for "${item}"`);
   return r;
 }
 
 /** Building types that can run this item's recipe. */
-export function machOptions(item: string): MachineKey[] {
-  const kind = recipeOf(item).kind;
-  return MACH_KEYS.filter((k) => MACH[k].kinds.includes(kind));
+/** Machines that can make this item's recipe (entity names), slowest first. */
+export function machOptions(item: string): string[] {
+  return machinesFor(recipeOf(item)).map((m) => m.id);
 }
 
-export function defaultMach(item: string, s: { asm: AsmSpeed; furn: FurnaceKey }): MachineKey {
-  const k = recipeOf(item).kind;
-  if (k === "smelt") return s.furn;
-  if (k === "chem") return "chem";
-  const a = ASM_KEY[s.asm];
-  return k === "fluidcraft" && a === "am1" ? "am2" : a;
+export function defaultMach(item: string, s: { asm: AssemblerId; furn: FurnaceId }): string {
+  return machineFor(recipeOf(item), s, new Set()).id;
 }
 
 export function newLayout(id: string, name: string): PlacedLayout {
@@ -52,8 +45,8 @@ export function newLayout(id: string, name: string): PlacedLayout {
 export interface CalcSource {
   plan: Pick<Plan, "build" | "inputs">;
   item: string;
-  asm: AsmSpeed;
-  furn: FurnaceKey;
+  asm: AssemblerId;
+  furn: FurnaceId;
   belt: string;
 }
 
@@ -64,7 +57,7 @@ export function layoutFromCalc(src: CalcSource, name: string, uid: () => string)
   for (const id of inputs.keys()) {
     let d = 0;
     for (const b of build) {
-      if (recipeOf(b.id).ins[id] !== undefined) d = Math.max(d, b.depth + 1);
+      if (recipeOf(b.id).ingredients[id] !== undefined) d = Math.max(d, b.depth + 1);
     }
     depth.set(id, d);
   }
@@ -73,7 +66,7 @@ export function layoutFromCalc(src: CalcSource, name: string, uid: () => string)
   const idOf: Record<string, string> = {};
   const estH = (n: ModuleNode): number =>
     n.kind === "machine"
-      ? 110 + 21 * Object.keys(recipeOf(n.item).ins).length
+      ? 110 + 21 * Object.keys(recipeOf(n.item).ingredients).length
       : n.kind === "source"
         ? 96
         : 92;
@@ -107,7 +100,7 @@ export function layoutFromCalc(src: CalcSource, name: string, uid: () => string)
   const out: OutputNode = { id: uid(), kind: "output", item: null };
   place(out, -1);
   for (const b of build) {
-    for (const ing of Object.keys(recipeOf(b.id).ins)) {
+    for (const ing of Object.keys(recipeOf(b.id).ingredients)) {
       const from = idOf[ing];
       const to = idOf[b.id];
       if (from && to) L.edges.push({ id: uid(), from, to, belt: src.belt });

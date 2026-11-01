@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BELT_TIERS } from "../data/legacy.ts";
+import { belt } from "../data/game.ts";
 import { bpSolution, resolveBpSettings } from "../blueprint/fromModules.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import { blueprintObject, DIR16 } from "../blueprint/export.ts";
@@ -12,11 +12,11 @@ import type { EdEnt } from "./types.ts";
 
 type Name = "green" | "blue";
 function setup(name: Name) {
-  const bp = resolveBpSettings(undefined, "15");
+  const bp = resolveBpSettings(undefined, "transport-belt");
   const sol = bpSolution(goldens[name].graph, bp);
   const LY = planLayout(sol, bp);
   const doc = edFromLayout(LY, bp);
-  const U = BELT_TIERS[bp.belt]!.U;
+  const U = belt(bp.belt).U;
   return { bp, sol, LY, doc, U };
 }
 
@@ -223,7 +223,7 @@ describe("editor actions", () => {
 });
 
 describe("blueprint export (one exporter)", () => {
-  const tierOf = (bp: { belt: string }) => BELT_TIERS[bp.belt]!;
+  const tierOf = (bp: { belt: string }) => belt(bp.belt);
   // The artifact writes version 2.0.0.0. We now write 2.1.24.1 on purpose (tested below), so the
   // goldens are compared with the artifact's version put back; everything else must still match.
   const asArtifact = (o: ReturnType<typeof blueprintObject>) => ({
@@ -259,7 +259,8 @@ describe("blueprint export (one exporter)", () => {
     // (Ian, 2026-11-01, on a blueprint this planner exported).
     const e = (dir: "N" | "E" | "S" | "W"): EdEnt => ({ t: "ins", x: 0, y: 0, dir, kind: "fast" });
     const dirs = (["N", "E", "S", "W"] as const).map(
-      (d) => blueprintObject([e(d)], BELT_TIERS["15"]!, null, "x").blueprint.entities[0]!.direction,
+      (d) =>
+        blueprintObject([e(d)], belt("transport-belt"), null, "x").blueprint.entities[0]!.direction,
     );
     expect(dirs).toEqual([8, 12, 0, 4]);
   });

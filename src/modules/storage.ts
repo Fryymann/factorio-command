@@ -9,6 +9,7 @@ import type { ChainBasis, ChainEdit } from "../editor/chainEdit.ts";
 import type { Tuple } from "../editor/compact.ts";
 import type { EditDoc } from "../editor/types.ts";
 import type { BpSettings } from "../blueprint/fromModules.ts";
+import { migrateLayouts } from "./migrate.ts";
 import type { ModuleGraph } from "./types.ts";
 
 export const LAYOUTS_KEY = "fcp-layouts";
@@ -70,13 +71,23 @@ export function loadLayouts(kv: KeyValueStore): LoadResult {
       error: "Saved layouts have an unexpected shape. They were left untouched.",
     };
   const src = d as {
+    version?: unknown;
     layouts: Record<string, SavedLayout>;
     order?: string[];
     current?: string | null;
   };
+  if (src.version !== undefined && src.version !== 2)
+    return {
+      ok: false,
+      error: "Saved layouts are from a newer version of the planner. They were left untouched.",
+    };
   try {
+    // Version 2 names machines and belts by entity name; before that, by the artifact's keys.
+    // Both go through the migration: it passes entity names through and checks every value, so
+    // bad data refuses the load here instead of breaking a tab later.
+    const stored = migrateLayouts(src.layouts);
     const layouts: Record<string, SavedLayout> = {};
-    for (const [id, L] of Object.entries(src.layouts)) layouts[id] = readLayout(L);
+    for (const [id, L] of Object.entries(stored)) layouts[id] = readLayout(L);
     const order = (src.order ?? Object.keys(layouts)).filter((id) => layouts[id]);
     return { ok: true, state: { layouts, order, current: src.current ?? null } };
   } catch (e) {
@@ -116,7 +127,12 @@ export function saveLayouts(kv: KeyValueStore, state: LayoutsState): SaveResult 
     };
     layouts[id] = { ...L, chainEdit: stored };
   }
-  const json = JSON.stringify({ layouts, order: state.order, current: state.current });
+  const json = JSON.stringify({
+    version: 2,
+    layouts,
+    order: state.order,
+    current: state.current,
+  });
   try {
     kv.setItem(LAYOUTS_KEY, json);
   } catch (e) {

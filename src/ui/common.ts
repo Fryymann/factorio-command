@@ -1,5 +1,6 @@
 // Helpers shared by the tab views: DOM lookup, escaping, item swatches and item pickers.
-import { ITEMS, nm } from "../data/legacy.ts";
+import { itemName, machine, own } from "../data/game.ts";
+import { ITEM_CLASS } from "../data/legacy.ts";
 import type { ItemClass } from "../data/legacy.ts";
 
 export const el = <T extends HTMLElement>(id: string): T => {
@@ -31,8 +32,21 @@ export const SWATCH: Record<ItemClass, string> = {
   fluid: "--sw-fluid",
 };
 
+// Short labels for machine boxes and pickers; the game has no short names.
+const MACHINE_SHORT: Record<string, string> = {
+  "assembling-machine-1": "AM1",
+  "assembling-machine-2": "AM2",
+  "assembling-machine-3": "AM3",
+  "stone-furnace": "Stone furnace",
+  "steel-furnace": "Steel furnace",
+  "electric-furnace": "Electric furnace",
+  "chemical-plant": "Chem plant",
+};
+/** A machine's short label, or its game name when it has none. */
+export const machineShort = (id: string): string => own(MACHINE_SHORT, id) ?? machine(id).name;
+
 export const swatchVar = (id: string | null): string =>
-  `var(${SWATCH[(id && ITEMS[id]?.[1]) || "raw"]})`;
+  `var(${SWATCH[(id && own(ITEM_CLASS, id)) || "raw"]})`;
 
 export const sw = (id: string | null): string =>
   `<span class="sw" style="background:${swatchVar(id)}"></span>`;
@@ -83,7 +97,10 @@ export const GROUPS: [string, (id: string) => boolean][] = [
 
 export const itemOptions = (ids: string[], selId?: string | null): string =>
   ids
-    .map((id) => `<option value="${id}"${id === selId ? " selected" : ""}>${esc(nm(id))}</option>`)
+    .map(
+      (id) =>
+        `<option value="${id}"${id === selId ? " selected" : ""}>${esc(itemName(id))}</option>`,
+    )
     .join("");
 
 /** `<optgroup>`s of the pickable items, by group. */

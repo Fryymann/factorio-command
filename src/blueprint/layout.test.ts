@@ -7,7 +7,7 @@ function plan(
   name: "green" | "blue",
   over: Partial<Parameters<typeof resolveBpSettings>[0] & object> = {},
 ) {
-  const bp = resolveBpSettings(over, "15");
+  const bp = resolveBpSettings(over, "transport-belt");
   return planLayout(bpSolution(goldens[name].graph, bp), bp);
 }
 
@@ -70,10 +70,13 @@ describe("planLayout matches the artifact", () => {
   });
 
   it("fails loudly on an unknown belt tier", () => {
-    const bp = resolveBpSettings({ belt: "7" }, "15");
+    const bp = resolveBpSettings({ belt: "7" }, "transport-belt");
     expect(() =>
-      planLayout(bpSolution(goldens.green.graph, resolveBpSettings(undefined, "15")), bp),
-    ).toThrow(/belt tier/);
+      planLayout(
+        bpSolution(goldens.green.graph, resolveBpSettings(undefined, "transport-belt")),
+        bp,
+      ),
+    ).toThrow(/Unknown belt "7"/);
   });
 
   it("splits a row that would overload a belt lane (maxRow)", () => {

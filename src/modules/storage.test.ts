@@ -13,7 +13,7 @@ function memory(initial?: string): KeyValueStore & { data: Map<string, string> }
 }
 
 function chainState(name: "green" | "blue" = "green") {
-  const bp = resolveBpSettings(undefined, "15");
+  const bp = resolveBpSettings(undefined, "transport-belt");
   const sol = bpSolution(goldens[name].graph, bp);
   const LY = planLayout(sol, bp);
   const layout: SavedLayout = { id: "L1", ...goldens[name].graph, bp };
@@ -77,9 +77,10 @@ describe("chainEdit round trip", () => {
     const { sol, LY, bp, layout, state } = chainState("blue");
     layout.chainEdit = startChainEdit(LY, sol, bp);
     const kv = memory();
-    const saved = saveLayouts(kv, state);
+    expect(saveLayouts(kv, state).ok).toBe(true);
     const objects = JSON.stringify(layout.chainEdit.ents).length;
-    expect(saved.ok && saved.bytes).toBeLessThan(objects * 0.5);
+    const stored = JSON.stringify(JSON.parse(kv.data.get(LAYOUTS_KEY)!).layouts.L1.chainEdit.ents);
+    expect(stored.length).toBeLessThan(objects * 0.5);
   });
 });
 

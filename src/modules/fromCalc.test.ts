@@ -24,8 +24,8 @@ const cases: [keyof typeof goldens, PlanSettings][] = [
       item: "logistic-science-pack",
       amount: 8,
       mode: "buildings",
-      asm: "0.75",
-      furn: "steel",
+      asm: "assembling-machine-2",
+      furn: "steel-furnace",
       imports: ["iron-plate", "copper-plate"],
     },
   ],
@@ -35,7 +35,7 @@ describe("layoutFromCalc matches the artifact", () => {
   for (const [key, s] of cases) {
     it(key, () => {
       const plan = solve(s);
-      const L = layoutFromCalc({ plan, ...s, belt: "15" }, "T", counter());
+      const L = layoutFromCalc({ plan, ...s, belt: "transport-belt" }, "T", counter());
       const g = goldens[key].graph;
       expect(L.nodes).toEqual(g.nodes);
       expect(L.edges).toEqual(g.edges);
@@ -47,11 +47,11 @@ describe("layoutFromCalc matches the artifact", () => {
       item: "chemical-science-pack",
       amount: 10,
       mode: "buildings",
-      asm: "0.75",
-      furn: "steel",
+      asm: "assembling-machine-2",
+      furn: "steel-furnace",
       imports: ["iron-plate", "copper-plate", "steel-plate"],
     };
-    const L = layoutFromCalc({ plan: solve(s), ...s, belt: "15" }, "T", counter());
+    const L = layoutFromCalc({ plan: solve(s), ...s, belt: "transport-belt" }, "T", counter());
     const g = goldens.blue.graph;
     expect(L.nodes).toEqual(g.nodes);
     expect(L.edges).toEqual(g.edges);
@@ -60,21 +60,35 @@ describe("layoutFromCalc matches the artifact", () => {
 
 describe("machine choice", () => {
   it("defaults follow the calculator settings", () => {
-    const s = { asm: "1.25", furn: "electric" } as const;
-    expect(defaultMach("iron-plate", s)).toBe("electric");
-    expect(defaultMach("plastic-bar", s)).toBe("chem");
-    expect(defaultMach("inserter", s)).toBe("am3");
+    const s = { asm: "assembling-machine-3", furn: "electric-furnace" } as const;
+    expect(defaultMach("iron-plate", s)).toBe("electric-furnace");
+    expect(defaultMach("plastic-bar", s)).toBe("chemical-plant");
+    expect(defaultMach("inserter", s)).toBe("assembling-machine-3");
   });
 
   it("fluid recipes never default to assembling machine 1", () => {
-    expect(defaultMach("processing-unit", { asm: "0.5", furn: "steel" })).toBe("am2");
+    expect(
+      defaultMach("processing-unit", { asm: "assembling-machine-1", furn: "steel-furnace" }),
+    ).toBe("assembling-machine-2");
   });
 
   it("offers only buildings that can run the recipe", () => {
-    expect(machOptions("iron-plate")).toEqual(["stone", "steel", "electric"]);
-    expect(machOptions("inserter")).toEqual(["am1", "am2", "am3"]);
-    expect(machOptions("processing-unit")).toEqual(["am2", "am3"]);
-    expect(machOptions("sulfur")).toEqual(["chem"]);
+    // Slowest first; equal speeds by name (electric before steel furnace).
+    expect(machOptions("iron-plate")).toEqual([
+      "stone-furnace",
+      "electric-furnace",
+      "steel-furnace",
+    ]);
+    expect(machOptions("inserter")).toEqual([
+      "assembling-machine-1",
+      "assembling-machine-2",
+      "assembling-machine-3",
+    ]);
+    expect(machOptions("processing-unit")).toEqual([
+      "assembling-machine-2",
+      "assembling-machine-3",
+    ]);
+    expect(machOptions("sulfur")).toEqual(["chemical-plant"]);
   });
 
   it("throws for an item with no recipe", () => {
@@ -84,7 +98,8 @@ describe("machine choice", () => {
 
 describe("graph edits", () => {
   const s = cases[0]![1];
-  const make = () => layoutFromCalc({ plan: solve(s), ...s, belt: "15" }, "T", counter());
+  const make = () =>
+    layoutFromCalc({ plan: solve(s), ...s, belt: "transport-belt" }, "T", counter());
 
   it("duplicate remaps every id and keeps the shape", () => {
     const L = make();

@@ -3,8 +3,8 @@
 // A chain edit is never regenerated quietly; the only ways out are editing on or discarding.
 import type { BpSettings, Solution } from "../blueprint/fromModules.ts";
 import type { Layout } from "../blueprint/layout.ts";
-import { BELT_TIERS, INSERTERS, MACH, short } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
+import { BELTS, machine, itemName, own } from "../data/game.ts";
+import { INSERTERS } from "../data/legacy.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import type { EdEnt } from "./types.ts";
 
@@ -13,7 +13,7 @@ export interface ChainBasis {
   belt: string;
   ins: string;
   maxRow: number;
-  machines: Record<string, { count: number; mach: MachineKey }>;
+  machines: Record<string, { count: number; mach: string }>; // mach: machine entity name
 }
 
 export interface ChainEdit {
@@ -44,8 +44,8 @@ export interface StaleWarning {
   text: string;
 }
 
-const beltName = (k: string) => BELT_TIERS[k]?.name ?? k;
-const insName = (k: string) => (INSERTERS as Record<string, { name: string }>)[k]?.name ?? k;
+const beltName = (k: string) => own(BELTS, k)?.name ?? k;
+const insName = (k: string) => own<{ name: string }>(INSERTERS, k)?.name ?? k;
 
 /**
  * Differences between the snapshot and the chain as it is now. Empty means the edit still
@@ -62,7 +62,7 @@ export function staleWarnings(
   for (const id of ids) {
     const was = basis.machines[id];
     const is = now[id];
-    const nm = short(id);
+    const nm = itemName(id);
     if (was && !is)
       out.push({ kind: "removed", item: id, text: `${nm} was removed from the chain.` });
     else if (!was && is)
@@ -82,7 +82,7 @@ export function staleWarnings(
         out.push({
           kind: "machine",
           item: id,
-          text: `${nm} is now made in ${MACH[is.mach].name} instead of ${MACH[was.mach].name}.`,
+          text: `${nm} is now made in ${machine(is.mach).name} instead of ${machine(was.mach).name}.`,
         });
     }
   }

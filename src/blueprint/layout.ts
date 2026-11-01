@@ -1,8 +1,19 @@
 // Tile layout generator. Ported unchanged from `planLayout` in artifacts/FCP_v1-2.html
 // (lines 1233-1387), which was itself adapted from a friend's version of the planner.
 // Coordinates are tiles; x grows east, y grows south. Rates are per second.
-import { BELT_TIERS, FUEL, INSERTERS, LONG, RECIPES, isFluid, nm } from "../data/legacy.ts";
-import type { BeltTier, InserterType } from "../data/legacy.ts";
+import {
+  GAME,
+  belt as beltTier,
+  isFluid,
+  machine,
+  own,
+  plannedRecipe,
+  productOf,
+  itemName,
+} from "../data/game.ts";
+import type { BeltTier } from "../data/game.ts";
+import { INSERTERS, LONG } from "../data/legacy.ts";
+import type { InserterType } from "../data/legacy.ts";
 import type { BuildEntry, Solution } from "./fromModules.ts";
 
 export type Dir = "N" | "E" | "S" | "W";
@@ -125,38 +136,50 @@ export interface Layout {
   insT: InserterType;
 }
 
+/** Coal per second for one burner machine working flat out: its power over coal's fuel value. */
+function burnerFuel(machineId: string): number {
+  const coal = GAME.items.coal?.fuelValue;
+  if (!coal) throw new Error("planLayout: no fuel value for coal in the game data");
+  return machine(machineId).energyUsage / coal;
+}
+
 export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSettings): Layout {
-  const tier = BELT_TIERS[st.belt];
-  if (!tier) throw new Error(`planLayout: unknown belt tier ${JSON.stringify(st.belt)}`);
-  const laneCap = Number(st.belt) / 2;
+  const tier = beltTier(st.belt);
+  const laneCap = tier.itemsPerSecond / 2;
   const U = tier.U;
-  const insT = (INSERTERS as Record<string, InserterType>)[st.ins] ?? INSERTERS.fast;
+  const insT = own<InserterType>(INSERTERS, st.ins) ?? INSERTERS.fast;
   const warn: string[] = [];
   const recs = [...sol.build].sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : 1));
   const made = new Set(recs.map((b) => b.id));
   const maxRow = Math.max(1, Math.floor(Number(st.maxRow) || 12));
   const plans: RowPlan[] = [];
   for (const b of recs) {
-    const r = RECIPES[b.id];
+    const r = plannedRecipe(b.id);
     if (!r) throw new Error(`planLayout: unknown recipe ${b.id}`);
     const m = b.machine;
     const w = m.size;
     const u = b.count ? b.exact / b.count : 0;
     const cps = (m.speed / r.time) * u; // crafts per second per machine at the planned rate
-    const ings: Ingredient[] = Object.entries(r.ins).map(([id, q]) => ({ id, per: q * cps }));
-    if (r.kind === "smelt" && m.burner) ings.push({ id: "coal", per: FUEL * u, fuel: true });
+    const ings: Ingredient[] = Object.entries(r.ingredients).map(([id, q]) => ({
+      id,
+      per: q * cps,
+    }));
+    if (r.categories.includes("smelting") && m.burner)
+      ings.push({ id: "coal", per: burnerFuel(m.ent) * u, fuel: true });
     const solids = ings.filter((i) => !isFluid(i.id)).sort((a, c) => c.per - a.per);
     const fluids = ings.filter((i) => isFluid(i.id));
     const fluidOut = isFluid(b.id);
-    const outPer = r.out * cps;
+    const outPer = productOf(r, b.id) * cps;
     if (solids.length > 4)
-      warn.push(`${nm(b.id)} has more than four solid ingredients; only four are belted.`);
+      warn.push(`${itemName(b.id)} has more than four solid ingredients; only four are belted.`);
     let cap = maxRow;
     for (const s of solids) cap = Math.min(cap, Math.floor(laneCap / s.per + 1e-9));
     if (!fluidOut) cap = Math.min(cap, Math.floor(laneCap / outPer + 1e-9));
     if (cap < 1) {
       cap = 1;
-      warn.push(`One ${nm(b.id)} machine needs more than a full belt lane. Pick a faster belt.`);
+      warn.push(
+        `One ${itemName(b.id)} machine needs more than a full belt lane. Pick a faster belt.`,
+      );
     }
     const nRows = Math.max(1, Math.ceil(b.count / cap));
     const A = solids.slice(0, 2);
@@ -185,7 +208,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
         w,
         ent: m.ent,
         mname: m.name,
-        recipe: r.kind === "smelt" ? null : b.id,
+        recipe: r.categories.includes("smelting") ? null : b.id, // furnaces pick their recipe
         A,
         C,
         fluids,
@@ -305,9 +328,9 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
     if (c) c.rate = b.rate;
   }
   for (const c of cols)
-    if (c.rate > Number(st.belt) + 1e-9)
+    if (c.rate > tier.itemsPerSecond + 1e-9)
       warn.push(
-        `${nm(c.item)} needs ${(c.rate / Number(st.belt)).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`,
+        `${itemName(c.item)} needs ${(c.rate / tier.itemsPerSecond).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`,
       );
 
   // placement
@@ -420,7 +443,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
               break;
             }
           if (cand === null) {
-            warn.push(`Couldn't route ${nm(item)} across the bus at row ${yy}.`);
+            warn.push(`Couldn't route ${itemName(item)} across the bus at row ${yy}.`);
             break;
           }
           put({ t: "ug", x: cand, y: yy, w: 1, h: 1, dir: "E", io: "output", item });
