@@ -1,5 +1,6 @@
 // Helpers shared by the tab views: DOM lookup, escaping, item swatches and item pickers.
-import { ITEMS, nm } from "../data/legacy.ts";
+import { itemName } from "../data/game.ts";
+import { ITEM_CLASS } from "../data/legacy.ts";
 import type { ItemClass } from "../data/legacy.ts";
 
 export const el = <T extends HTMLElement>(id: string): T => {
@@ -32,7 +33,7 @@ export const SWATCH: Record<ItemClass, string> = {
 };
 
 export const swatchVar = (id: string | null): string =>
-  `var(${SWATCH[(id && ITEMS[id]?.[1]) || "raw"]})`;
+  `var(${SWATCH[(id && ITEM_CLASS[id]) || "raw"]})`;
 
 export const sw = (id: string | null): string =>
   `<span class="sw" style="background:${swatchVar(id)}"></span>`;
@@ -83,7 +84,10 @@ export const GROUPS: [string, (id: string) => boolean][] = [
 
 export const itemOptions = (ids: string[], selId?: string | null): string =>
   ids
-    .map((id) => `<option value="${id}"${id === selId ? " selected" : ""}>${esc(nm(id))}</option>`)
+    .map(
+      (id) =>
+        `<option value="${id}"${id === selId ? " selected" : ""}>${esc(itemName(id))}</option>`,
+    )
     .join("");
 
 /** `<optgroup>`s of the pickable items, by group. */

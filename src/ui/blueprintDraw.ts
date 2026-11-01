@@ -1,7 +1,8 @@
 // Canvas drawing for the Blueprint tab: the generated layout and the editor. Ported from
 // `bpDraw`, `chevron`, `edDrawEnt` and `edDraw` (artifacts/FCP_v1-2.html, lines 1553-1653 and
 // 1973-2054), plus labels from src/editor/annotations.ts. Draws only; no state of its own.
-import { ITEMS, short } from "../data/legacy.ts";
+import { itemName } from "../data/game.ts";
+import { ITEM_CLASS } from "../data/legacy.ts";
 import type { Layout } from "../blueprint/layout.ts";
 import type { EditSession } from "../editor/actions.ts";
 import type { Annotations } from "../editor/annotations.ts";
@@ -37,7 +38,7 @@ export interface BpView {
 export const getVar = (n: string): string =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-const ITEM_IDS = Object.keys(ITEMS);
+const ITEM_IDS = Object.keys(ITEM_CLASS);
 export function itemColorFn(lightness: string): (id: string | null | undefined) => string {
   return (id) => {
     const i = id ? ITEM_IDS.indexOf(id) : -1;
@@ -118,7 +119,7 @@ export function drawGenerated(
     ctx.translate(c.x * T + T * 0.62, -T * 0.4);
     ctx.rotate(-Math.PI / 2);
     ctx.fillStyle = p.itemColor(c.item);
-    ctx.fillText(short(c.item), 0, 0);
+    ctx.fillText(itemName(c.item), 0, 0);
     ctx.restore();
     if (!c.raw && c.start != null) {
       ctx.strokeStyle = col(p, "--grid");
@@ -232,7 +233,11 @@ export function drawGenerated(
     const ly = (r.yM + r.w / 2) * T;
     ctx.fillStyle = col(p, "--fg");
     ctx.font = `600 13px ${p.body}`;
-    ctx.fillText(`${short(r.id)}${r.parts > 1 ? ` (${r.part + 1}/${r.parts})` : ""}`, lx, ly - 2);
+    ctx.fillText(
+      `${itemName(r.id)}${r.parts > 1 ? ` (${r.part + 1}/${r.parts})` : ""}`,
+      lx,
+      ly - 2,
+    );
     ctx.fillStyle = col(p, "--muted");
     ctx.font = `500 11px ${p.mono}`;
     ctx.fillText(`${r.n}× · ${rate(r.outPer * r.n)}${unit}`, lx, ly + 12);
@@ -245,7 +250,7 @@ export function drawGenerated(
       ctx.font = `500 10px ${p.body}`;
       ctx.textAlign = "right";
       ctx.fillText(
-        `${short(pp.item)} ${pp.dir === "in" ? "in" : "out"}`,
+        `${itemName(pp.item)} ${pp.dir === "in" ? "in" : "out"}`,
         (LY.rowX0 - 1.2) * T,
         (pp.y + 0.72) * T,
       );
@@ -256,7 +261,7 @@ export function drawGenerated(
   if (fc) {
     ctx.fillStyle = col(p, "--accent");
     ctx.font = `700 12px ${p.body}`;
-    ctx.fillText(`↓ ${short(fc.item)} out`, fc.x * T - 4, (LY.H + 0.6) * T);
+    ctx.fillText(`↓ ${itemName(fc.item)} out`, fc.x * T - 4, (LY.H + 0.6) * T);
   }
 }
 
@@ -359,7 +364,7 @@ function drawEnt(p: Paint, E: EditPaint, e: EdEnt, ghost: boolean): void {
       ctx.fillStyle = col(p, "--muted");
       ctx.font = `600 9px ${p.mono}`;
       ctx.textAlign = "center";
-      ctx.fillText(short(e.item).slice(0, 10), x + (e.w * T) / 2, y + e.h * T - 7);
+      ctx.fillText(itemName(e.item).slice(0, 10), x + (e.w * T) / 2, y + e.h * T - 7);
       ctx.textAlign = "left";
     }
     if (bad) {
@@ -515,7 +520,7 @@ function drawNotes(p: Paint, E: EditPaint): void {
   const at = (x: number, y: number): EdEnt | undefined => S.G.get(tkey(x, y));
   for (const e of E.session.ents)
     if (e.t === "belt" && e.feed && !at(e.x, e.y - 1))
-      rotated(e.x, e.y, short(e.feed), p.itemColor(e.feed));
+      rotated(e.x, e.y, itemName(e.feed), p.itemColor(e.feed));
   const n = E.notes;
   if (!n) return;
   ctx.textAlign = "left";
@@ -524,12 +529,12 @@ function drawNotes(p: Paint, E: EditPaint): void {
     ctx.font = `500 11px ${p.mono}`;
     const m = S.G.get(tkey(r.x, r.y));
     const mw = m ? foot(m)[0] : 3;
-    ctx.fillText(`${r.count}× ${short(r.item)}`, (r.x + r.count * mw + 1) * T, (r.y + 1.6) * T);
+    ctx.fillText(`${r.count}× ${itemName(r.item)}`, (r.x + r.count * mw + 1) * T, (r.y + 1.6) * T);
   }
   ctx.font = `700 12px ${p.body}`;
   for (const o of n.outputs) {
     ctx.fillStyle = col(p, "--accent");
-    ctx.fillText(`↓ ${short(o.item)} out`, o.x * T - 4, (o.y + 1.6) * T);
+    ctx.fillText(`↓ ${itemName(o.item)} out`, o.x * T - 4, (o.y + 1.6) * T);
   }
 }
 

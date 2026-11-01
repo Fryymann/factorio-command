@@ -1,7 +1,6 @@
 // Calculator tab: rendering and wiring. Ported from artifacts/FCP_v1-2.html, lines 549-652.
 // Rates are per second everywhere except here: the per-minute conversion happens in `rateStr`.
-import { isFluid, plannedRecipe } from "../data/game.ts";
-import { nm, short } from "../data/legacy.ts";
+import { isFluid, plannedRecipe, itemName } from "../data/game.ts";
 import { fmt } from "../data/format.ts";
 import { consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
@@ -29,7 +28,7 @@ export function mountCalculator(onSend: () => void): void {
         .map((b) => {
           const pct = Math.min(1, b.exact / b.count);
           return `<tr>
-      <td><span class="item">${sw(b.id)}${esc(nm(b.id))}</span></td>
+      <td><span class="item">${sw(b.id)}${esc(itemName(b.id))}</span></td>
       <td class="num">${rateStr(b.rate)}</td>
       <td class="mach">${b.machine.name}</td>
       <td class="big"><span class="exact">${fmt(b.exact, 2)}</span>${b.count}<span class="util${pct > 0.999 ? " full" : ""}" title="${Math.round(pct * 100)}% busy"><i style="width:${pct * 100}%"></i></span></td>
@@ -52,7 +51,7 @@ export function mountCalculator(onSend: () => void): void {
           const lanes = v.rate / (beltPerSec / 2);
           const belts = v.rate / beltPerSec;
           return `<tr>
-      <td><span class="item">${sw(id)}${esc(nm(id))}</span></td>
+      <td><span class="item">${sw(id)}${esc(itemName(id))}</span></td>
       <td class="num">${rateStr(v.rate)}</td>
       <td class="num">${fluid ? "pipe" : fmt(lanes, 2)}</td>
       <td class="num">${fluid ? "–" : fmt(belts, 2)}</td>
@@ -72,7 +71,7 @@ export function mountCalculator(onSend: () => void): void {
           ? `${rateStr(n.rate)}${unitLbl()} · ${n.imported ? "imported" : "input"}`
           : `${rateStr(n.rate)}${unitLbl()} · <b>${fmt(n.count ?? 0, 2)}</b> ${n.machine.name.replace("Assembling machine", "AM")}`;
       rows.push(
-        `<div class="node${n.leaf ? " leaf" : ""}"><div class="left">${twig}${sw(n.id)}<span class="name">${esc(nm(n.id))}</span>${n.imported ? ` <span class="tag imp">import</span>` : ""}</div><div class="right">${right}</div></div>`,
+        `<div class="node${n.leaf ? " leaf" : ""}"><div class="left">${twig}${sw(n.id)}<span class="name">${esc(itemName(n.id))}</span>${n.imported ? ` <span class="tag imp">import</span>` : ""}</div><div class="right">${right}</div></div>`,
       );
       const childPrefix = isRoot ? "" : prefix + (last ? "   " : "│  ");
       n.children.forEach((c, i) => walk(c, childPrefix, i === n.children.length - 1, false));
@@ -83,8 +82,8 @@ export function mountCalculator(onSend: () => void): void {
   function renderPlan({ tree, build, inputs }: Plan): void {
     el("equiv").textContent =
       state.mode === "buildings"
-        ? `= ${rateStr(tree.rate)} ${short(state.item)}${unitLbl()}`
-        : `= ${fmt(tree.count ?? 0, 2)} buildings of ${short(state.item)}`;
+        ? `= ${rateStr(tree.rate)} ${itemName(state.item)}${unitLbl()}`
+        : `= ${fmt(tree.count ?? 0, 2)} buildings of ${itemName(state.item)}`;
     el("s-out").innerHTML = `${rateStr(tree.rate)}<small>${unitLbl()}</small>`;
     el("s-bld").innerHTML = `${build.reduce((s, b) => s + b.count, 0)}<small>total</small>`;
     el("s-iron").innerHTML =

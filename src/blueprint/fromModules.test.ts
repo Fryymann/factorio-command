@@ -55,6 +55,16 @@ describe("bpSolution matches the artifact", () => {
     });
   });
 
+  it("labels a module with the game's item name", () => {
+    // The game calls it "Logistic science pack"; the artifact said "Logistic science (green)" and
+    // cut the colour off, giving "Logistic science module".
+    const g = goldens.green.graph;
+    const node = g.nodes.find((n) => n.kind === "machine" && n.item === "logistic-science-pack")!;
+    const sol = bpSolution(g, resolveBpSettings({ scope: node.id }, "15"));
+    expect(sol.label).toBe("Logistic science pack module");
+    expect(sol.title).toBe("Module · 8× Logistic science pack");
+  });
+
   it("an unknown scope falls back to the whole chain", () => {
     const sol = bpSolution(goldens.green.graph, resolveBpSettings({ scope: "gone" }, "15"));
     expect(sol.build).toHaveLength(6);

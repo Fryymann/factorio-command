@@ -3,8 +3,8 @@
 // A chain edit is never regenerated quietly; the only ways out are editing on or discarding.
 import type { BpSettings, Solution } from "../blueprint/fromModules.ts";
 import type { Layout } from "../blueprint/layout.ts";
-import { BELTS, beltByKey, machine } from "../data/game.ts";
-import { INSERTERS, MACH_ENTITY, short } from "../data/legacy.ts";
+import { BELTS, beltByKey, machine, itemName } from "../data/game.ts";
+import { INSERTERS, MACH_ENTITY } from "../data/legacy.ts";
 import type { MachineKey } from "../data/legacy.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import type { EdEnt } from "./types.ts";
@@ -64,7 +64,7 @@ export function staleWarnings(
   for (const id of ids) {
     const was = basis.machines[id];
     const is = now[id];
-    const nm = short(id);
+    const nm = itemName(id);
     if (was && !is)
       out.push({ kind: "removed", item: id, text: `${nm} was removed from the chain.` });
     else if (!was && is)

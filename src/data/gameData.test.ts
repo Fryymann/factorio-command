@@ -3,7 +3,7 @@
 // each one is a bug in the old tables or a change in the game, never a silent update.
 import { describe, expect, it } from "vitest";
 import raw from "../../data/game-data.json" with { type: "json" };
-import { ITEMS } from "./legacy.ts";
+import { ITEM_CLASS } from "./legacy.ts";
 import { BELT_TIERS, FUEL, MACH, RECIPES, type RecipeKind } from "../testdata/legacy-tables.ts";
 import type { GameData } from "./types.ts";
 
@@ -97,8 +97,8 @@ describe("game-data.json", () => {
   });
 
   it("agrees with the hand-typed fluid flags", () => {
-    for (const [id, row] of Object.entries(ITEMS)) {
-      expect(data.items[id]?.fluid, id).toBe(row[2] === true);
+    for (const [id, cls] of Object.entries(ITEM_CLASS)) {
+      expect(data.items[id]?.fluid, id).toBe(cls === "fluid");
     }
   });
 

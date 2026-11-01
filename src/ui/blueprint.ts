@@ -8,8 +8,8 @@ import { blueprintObject } from "../blueprint/export.ts";
 import { encodeBlueprint } from "../blueprint/encode.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import type { Layout, LayoutEnt } from "../blueprint/layout.ts";
-import { beltByKey, isFluid } from "../data/game.ts";
-import { INS_KINDS, ITEMS, MACH_SHORT, nm, short } from "../data/legacy.ts";
+import { beltByKey, isFluid, itemName } from "../data/game.ts";
+import { INS_KINDS, ITEM_CLASS, MACH_SHORT } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import * as actions from "../editor/actions.ts";
 import type { EditSession, Tool } from "../editor/actions.ts";
@@ -135,7 +135,7 @@ export function mountBlueprint(): BlueprintTab {
         ? `<optgroup label="Single module">${ms
             .map(
               (n) =>
-                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}` : "")} · ${MACH_SHORT[n.kind === "machine" ? n.mach : "am2"]}</option>`,
+                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${itemName(n.item)}` : "")} · ${MACH_SHORT[n.kind === "machine" ? n.mach : "am2"]}</option>`,
             )
             .join("")}</optgroup>`
         : "");
@@ -196,7 +196,7 @@ export function mountBlueprint(): BlueprintTab {
           const first = have[0];
           if (first && have.some((e) => e.item !== n.item))
             w.push(
-              `This module now makes ${nm(n.item)}, but the edited layout was made for ${nm(first.item)}. Discard edits to start over.`,
+              `This module now makes ${itemName(n.item)}, but the edited layout was made for ${itemName(first.item)}. Discard edits to start over.`,
             );
         }
       }
@@ -233,7 +233,7 @@ export function mountBlueprint(): BlueprintTab {
       ? `<span class="lane">${label}: ${list
           .map(
             (s) =>
-              `<span class="dot" style="background:${itemColor(s.id)}"></span>${esc(nm(s.id))}`,
+              `<span class="dot" style="background:${itemColor(s.id)}"></span>${esc(itemName(s.id))}`,
           )
           .join(" + ")}</span>`
       : "";
@@ -250,10 +250,10 @@ export function mountBlueprint(): BlueprintTab {
       .map(
         (r, i) => `
     <button type="button" class="rowcard" data-row="${i}">
-      <span class="rt">${sw(r.id)}${esc(nm(r.id))}${r.parts > 1 ? ` <span class="sub">part ${r.part + 1}/${r.parts}</span>` : ""}</span>
+      <span class="rt">${sw(r.id)}${esc(itemName(r.id))}${r.parts > 1 ? ` <span class="sub">part ${r.part + 1}/${r.parts}</span>` : ""}</span>
       <span class="m">${r.n}× ${esc(r.mname)} · ${rateStr(r.outPer * r.n)}${unitLbl()}</span>
       ${laneHtml(r.A, "Belt")}${laneHtml(r.C, "Far belt")}
-      ${r.fluids.length || r.fluidOut ? `<span class="lane">Pipe: ${[...r.fluids.map((f) => nm(f.id)), ...(r.fluidOut ? [`${nm(r.id)} out`] : [])].map(esc).join(", ")}</span>` : ""}
+      ${r.fluids.length || r.fluidOut ? `<span class="lane">Pipe: ${[...r.fluids.map((f) => itemName(f.id)), ...(r.fluidOut ? [`${itemName(r.id)} out`] : [])].map(esc).join(", ")}</span>` : ""}
       ${r.rowWarn.map((t) => `<span class="w">${esc(t)}</span>`).join("")}
     </button>`,
       )
@@ -322,7 +322,7 @@ export function mountBlueprint(): BlueprintTab {
   }
 
   const laneTxt = (s: Set<string> | undefined): string =>
-    s && s.size ? [...s].map(short).join(" + ") : "empty";
+    s && s.size ? [...s].map(itemName).join(" + ") : "empty";
 
   function describeEdit(e: EdEnt): string {
     const s = session();
@@ -336,13 +336,13 @@ export function mountBlueprint(): BlueprintTab {
           : e.t === "ug"
             ? `Underground ${e.io === "input" ? "entrance" : "exit"}`
             : "Splitter";
-      const feed = e.t === "belt" && e.feed ? ` · input: ${short(e.feed)}` : "";
+      const feed = e.t === "belt" && e.feed ? ` · input: ${itemName(e.feed)}` : "";
       return `${name} ${ARROW[e.dir]} · left lane: ${laneTxt(l?.L)} · right lane: ${laneTxt(l?.R)}${feed}`;
     }
     if (e.t === "ins") return `${INS_KINDS[e.kind].name} · drops ${DIRNAME[e.dir]}`;
-    if (e.t === "machine") return `${e.mname} · ${nm(e.item)}`;
+    if (e.t === "machine") return `${e.mname} · ${itemName(e.item)}`;
     if (e.t === "pole") return "Small electric pole";
-    return `Pipe guide · ${nm(e.item)} (not in blueprint)`;
+    return `Pipe guide · ${itemName(e.item)} (not in blueprint)`;
   }
 
   function panel(): void {
@@ -355,7 +355,7 @@ export function mountBlueprint(): BlueprintTab {
       ? groups
           .map(
             (g) =>
-              `${g.item && groups.length > 1 ? `<p class="sub">${esc(nm(g.item))}</p>` : ""}${g.checks.map(button).join("")}`,
+              `${g.item && groups.length > 1 ? `<p class="sub">${esc(itemName(g.item))}</p>` : ""}${g.checks.map(button).join("")}`,
           )
           .join("")
       : `<p class="clear">Every machine gets its ingredients and has an output, and no lane is mixed.</p>`;
@@ -550,16 +550,16 @@ export function mountBlueprint(): BlueprintTab {
       return e.lanes
         ? `${t.name} · ${[e.lanes.n, e.lanes.s]
             .filter((x): x is string => !!x)
-            .map(nm)
+            .map(itemName)
             .join(" | ")}`
-        : `${t.name} · ${e.item ? nm(e.item) : "empty"}`;
+        : `${t.name} · ${e.item ? itemName(e.item) : "empty"}`;
     if (e.t === "ug")
-      return `Underground belt (${e.io === "input" ? "entrance" : "exit"}) · ${nm(e.item)}`;
-    if (e.t === "splitter") return `Splitter · ${nm(e.item)}`;
-    if (e.t === "machine") return `${e.mname} · ${nm(e.item)}`;
+      return `Underground belt (${e.io === "input" ? "entrance" : "exit"}) · ${itemName(e.item)}`;
+    if (e.t === "splitter") return `Splitter · ${itemName(e.item)}`;
+    if (e.t === "machine") return `${e.mname} · ${itemName(e.item)}`;
     if (e.t === "ins") return `${e.ins.name} · ${e.out ? "output" : "input"}`;
     if (e.t === "pole") return "Small electric pole";
-    return `Pipe guide · ${nm(e.item)} (not in blueprint)`;
+    return `Pipe guide · ${itemName(e.item)} (not in blueprint)`;
   }
 
   function showTip(text: string, ev: PointerEvent): void {
@@ -833,9 +833,9 @@ export function mountBlueprint(): BlueprintTab {
     ED.feed = (ev.target as HTMLSelectElement).value;
     bpDraw();
   });
-  el("ed-feed").innerHTML = Object.keys(ITEMS)
+  el("ed-feed").innerHTML = Object.keys(ITEM_CLASS)
     .filter((id) => !isFluid(id))
-    .map((id) => `<option value="${id}">${esc(nm(id))}</option>`)
+    .map((id) => `<option value="${id}">${esc(itemName(id))}</option>`)
     .join("");
   el("ed-rot").addEventListener("click", () => rotateSel(false));
   el("ed-undo").addEventListener("click", undoStep);

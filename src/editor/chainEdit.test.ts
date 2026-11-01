@@ -54,7 +54,7 @@ describe("staleWarnings", () => {
       {
         kind: "count",
         item: "logistic-science-pack",
-        text: "Logistic science machine count changed from 8 to 10.",
+        text: "Logistic science pack machine count changed from 8 to 10.",
       },
     ]);
   });

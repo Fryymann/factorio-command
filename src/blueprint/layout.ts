@@ -1,9 +1,17 @@
 // Tile layout generator. Ported unchanged from `planLayout` in artifacts/FCP_v1-2.html
 // (lines 1233-1387), which was itself adapted from a friend's version of the planner.
 // Coordinates are tiles; x grows east, y grows south. Rates are per second.
-import { GAME, beltByKey, isFluid, machine, plannedRecipe, productOf } from "../data/game.ts";
+import {
+  GAME,
+  beltByKey,
+  isFluid,
+  machine,
+  plannedRecipe,
+  productOf,
+  itemName,
+} from "../data/game.ts";
 import type { BeltTier } from "../data/game.ts";
-import { INSERTERS, LONG, nm } from "../data/legacy.ts";
+import { INSERTERS, LONG } from "../data/legacy.ts";
 import type { InserterType } from "../data/legacy.ts";
 import type { BuildEntry, Solution } from "./fromModules.ts";
 
@@ -162,13 +170,15 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
     const fluidOut = isFluid(b.id);
     const outPer = productOf(r, b.id) * cps;
     if (solids.length > 4)
-      warn.push(`${nm(b.id)} has more than four solid ingredients; only four are belted.`);
+      warn.push(`${itemName(b.id)} has more than four solid ingredients; only four are belted.`);
     let cap = maxRow;
     for (const s of solids) cap = Math.min(cap, Math.floor(laneCap / s.per + 1e-9));
     if (!fluidOut) cap = Math.min(cap, Math.floor(laneCap / outPer + 1e-9));
     if (cap < 1) {
       cap = 1;
-      warn.push(`One ${nm(b.id)} machine needs more than a full belt lane. Pick a faster belt.`);
+      warn.push(
+        `One ${itemName(b.id)} machine needs more than a full belt lane. Pick a faster belt.`,
+      );
     }
     const nRows = Math.max(1, Math.ceil(b.count / cap));
     const A = solids.slice(0, 2);
@@ -319,7 +329,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
   for (const c of cols)
     if (c.rate > tier.itemsPerSecond + 1e-9)
       warn.push(
-        `${nm(c.item)} needs ${(c.rate / tier.itemsPerSecond).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`,
+        `${itemName(c.item)} needs ${(c.rate / tier.itemsPerSecond).toFixed(2)} belts on the bus. The layout draws one, so double that column or use a faster belt.`,
       );
 
   // placement
@@ -432,7 +442,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
               break;
             }
           if (cand === null) {
-            warn.push(`Couldn't route ${nm(item)} across the bus at row ${yy}.`);
+            warn.push(`Couldn't route ${itemName(item)} across the bus at row ${yy}.`);
             break;
           }
           put({ t: "ug", x: cand, y: yy, w: 1, h: 1, dir: "E", io: "output", item });

@@ -2,8 +2,16 @@
 // section of artifacts/FCP_v1-2.html (lines 654-1212). The maths lives in src/modules/; this file
 // only draws it and handles input. Saving goes through src/modules/storage.ts, which reports
 // failures; if saved layouts can't be read, nothing is written so they are never overwritten.
-import { BELT_KEY_TIERS, BELTS, beltByKey, isFluid, machine, plannedRecipe } from "../data/game.ts";
-import { ITEMS, MACH_ENTITY, MACH_SHORT, nm, short } from "../data/legacy.ts";
+import {
+  BELT_KEY_TIERS,
+  BELTS,
+  beltByKey,
+  isFluid,
+  machine,
+  plannedRecipe,
+  itemName,
+} from "../data/game.ts";
+import { ITEM_CLASS, MACH_ENTITY, MACH_SHORT } from "../data/legacy.ts";
 import type { MachineKey } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import { simulate } from "../modules/simulate.ts";
@@ -40,12 +48,12 @@ type MachineNode = Extract<PlacedNode, { kind: "machine" }>;
 type SourceNode = Extract<PlacedNode, { kind: "source" }>;
 
 const RECIPE_IDS = PICKABLE.filter((id) => plannedRecipe(id));
-const ALL_IDS = [...PICKABLE, ...Object.keys(ITEMS).filter((id) => !PICKABLE.includes(id))];
+const ALL_IDS = [...PICKABLE, ...Object.keys(ITEM_CLASS).filter((id) => !PICKABLE.includes(id))];
 
 function nodeLabel(n: PlacedNode | undefined): string {
   if (!n) return "?";
-  if (n.kind === "machine") return `${fmt(Number(n.count) || 0, 2)}× ${short(n.item)}`;
-  if (n.kind === "source") return `${short(n.item)} source`;
+  if (n.kind === "machine") return `${fmt(Number(n.count) || 0, 2)}× ${itemName(n.item)}`;
+  if (n.kind === "source") return `${itemName(n.item)} source`;
   return "Output";
 }
 
@@ -107,11 +115,11 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
           const v = r.missing.includes(i)
             ? "none"
             : `${rateStr(r.recv[i] ?? 0)} / ${rateStr((r.need[i] ?? 0) * frac)}`;
-          return `<div class="bn-row${shortOn ? " short" : ""}"><span class="item">${sw(i)}<span class="t">${esc(short(i))}</span></span><span class="v">${v}</span></div>`;
+          return `<div class="bn-row${shortOn ? " short" : ""}"><span class="item">${sw(i)}<span class="t">${esc(itemName(i))}</span></span><span class="v">${v}</span></div>`;
         })
         .join("");
       return `<div class="${cls}${bad ? " bad" : ""}" ${pos}>
-      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(nm(n.item))}</span></span><span class="bn-pct" title="How busy these buildings are">${Math.round(util * 100)}%</span></div>
+      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(itemName(n.item))}</span></span><span class="bn-pct" title="How busy these buildings are">${Math.round(util * 100)}%</span></div>
       <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${MACH_SHORT[n.mach]}</span></div>
       <div class="bn-sec"><span>In</span><span>got / need ${u}</span></div>${rows}
       <div class="bn-out"><span>Out</span><span class="v">${rateStr(r.A)} / ${rateStr(r.maxOut)} max</span></div>
@@ -120,7 +128,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     if (n.kind === "source") {
       const over = r.down > r.maxOut * (1 + EPS);
       return `<div class="${cls}${over ? " bad" : ""}" ${pos}>
-      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(nm(n.item))}</span></span></div>
+      <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(itemName(n.item))}</span></span></div>
       <div class="bn-sub"><span class="bn-kind">Source</span><span>${rateStr(r.maxOut)}${u}</span></div>
       <div class="bn-out"><span>Sending</span><span class="v">${rateStr(r.sent)} / ${rateStr(r.maxOut)}</span></div>
       <span class="port out" data-port="${n.id}" title="Drag to another block to add a belt"></span></div>`;
@@ -130,7 +138,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         .filter(([, v]) => v > EPS)
         .map(
           ([i, v]) =>
-            `<div class="bn-row"><span class="item">${sw(i)}<span class="t">${esc(short(i))}</span></span><span class="v">${rateStr(v)}${u}</span></div>`,
+            `<div class="bn-row"><span class="item">${sw(i)}<span class="t">${esc(itemName(i))}</span></span><span class="v">${rateStr(v)}${u}</span></div>`,
         )
         .join("") ||
       `<div class="bn-row"><span class="t" style="color:var(--muted)">Nothing connected</span></div>`;
@@ -226,7 +234,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       const who = nodeLabel(n);
       if (n.kind === "machine") {
         r.missing.forEach((i) =>
-          list.push([`node:${n.id}`, `${who} has no ${short(i)} connected.`]),
+          list.push([`node:${n.id}`, `${who} has no ${itemName(i)} connected.`]),
         );
         if (r.starved && r.limits.length) {
           const frac = r.maxOut ? r.T / r.maxOut : 0;
@@ -234,7 +242,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
             .filter((i) => !r.missing.includes(i))
             .map(
               (i) =>
-                `${short(i)} ${rateStr(r.recv[i] ?? 0)} of ${rateStr((r.need[i] ?? 0) * frac)}${u}`,
+                `${itemName(i)} ${rateStr(r.recv[i] ?? 0)} of ${rateStr((r.need[i] ?? 0) * frac)}${u}`,
             );
           if (parts.length)
             list.push([
@@ -261,7 +269,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       if (!s) continue;
       const a = nodeLabel(S.byId.get(e.from) as PlacedNode | undefined);
       const b = nodeLabel(S.byId.get(e.to) as PlacedNode | undefined);
-      const item = s.item ? short(s.item) : "?";
+      const item = s.item ? itemName(s.item) : "?";
       if (s.unused)
         list.push([
           `edge:${e.id}`,
@@ -426,7 +434,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         box.innerHTML =
           Object.entries(r.recv)
             .filter(([, v]) => v > EPS)
-            .map(([i, v]) => kv(esc(short(i)), `${rateStr(v)}${u}`))
+            .map(([i, v]) => kv(esc(itemName(i)), `${rateStr(v)}${u}`))
             .join("") || kv("Receiving", "nothing yet");
       }
     } else {
@@ -687,7 +695,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
   // ---------- toolbar ----------
   const addItem = el<HTMLSelectElement>("pl-add-item");
   addItem.innerHTML = `${groupedOptions()}<optgroup label="Raw and fluids">${itemOptions(
-    Object.keys(ITEMS).filter((id) => !PICKABLE.includes(id)),
+    Object.keys(ITEM_CLASS).filter((id) => !PICKABLE.includes(id)),
   )}</optgroup>`;
   const syncAddBtns = (): void => {
     el<HTMLButtonElement>("pl-add-machine").disabled = !plannedRecipe(addItem.value);
@@ -785,7 +793,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
   // built from the default settings and named after their item, so the label stays true.
   store.loadStore(() => {
     const s = planSettings(state).ok ? state : DEFAULT_STATE;
-    return calcLayout(`Example: ${short(s.item)}`, s);
+    return calcLayout(`Example: ${itemName(s.item)}`, s);
   });
   renderLayoutBar();
   renderPlanner();
@@ -799,7 +807,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     sendFromCalc(): void {
       const label =
         state.mode === "buildings" ? `${state.amount} buildings` : `${state.amount}/min`;
-      addLayout(calcLayout(`${short(state.item)} · ${label}`));
+      addLayout(calcLayout(`${itemName(state.item)} · ${label}`));
       renderLayoutBar();
     },
   };
