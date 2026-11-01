@@ -83,7 +83,9 @@ export function loadLayouts(kv: KeyValueStore): LoadResult {
     };
   try {
     // Version 2 names machines and belts by entity name; before that, by the artifact's keys.
-    const stored = src.version === 2 ? src.layouts : migrateLayouts(src.layouts);
+    // Both go through the migration: it passes entity names through and checks every value, so
+    // bad data refuses the load here instead of breaking a tab later.
+    const stored = migrateLayouts(src.layouts);
     const layouts: Record<string, SavedLayout> = {};
     for (const [id, L] of Object.entries(stored)) layouts[id] = readLayout(L);
     const order = (src.order ?? Object.keys(layouts)).filter((id) => layouts[id]);

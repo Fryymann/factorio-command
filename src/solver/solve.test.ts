@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consumption, FLUID_ASM_WARNING, solve, targetRate } from "./solve.ts";
+import { beltUsage, consumption, FLUID_ASM_WARNING, solve, targetRate } from "./solve.ts";
 import type { PlanSettings } from "./solve.ts";
 
 const base: PlanSettings = {
@@ -59,6 +59,19 @@ describe("solve: 8 assembling machine 2 of green science", () => {
     expect(plan.inputs.get("iron-ore")?.rate).toBeCloseTo(5.5, 9);
     expect(plan.inputs.get("iron-ore")?.imported).toBe(false);
     expect(plan.warnings.size).toBe(0);
+  });
+});
+
+describe("beltUsage", () => {
+  // A transport belt carries 15 items/s over two lanes (Factorio wiki, "Transport belts/Physics").
+  it("counts lanes and belts for a rate", () => {
+    expect(beltUsage(15, "transport-belt")).toEqual({ lanes: 2, belts: 1 });
+    expect(beltUsage(7.5, "transport-belt")).toEqual({ lanes: 1, belts: 0.5 });
+    expect(beltUsage(90, "turbo-transport-belt")).toEqual({ lanes: 3, belts: 1.5 });
+  });
+
+  it("throws on a belt it doesn't know", () => {
+    expect(() => beltUsage(1, "15")).toThrow(/Unknown belt "15"/);
   });
 });
 

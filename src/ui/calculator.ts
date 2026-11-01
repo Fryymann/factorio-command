@@ -2,7 +2,7 @@
 // Rates are per second everywhere except here: the per-minute conversion happens in `rateStr`.
 import { isFluid, plannedRecipe, itemName } from "../data/game.ts";
 import { fmt } from "../data/format.ts";
-import { consumption, solve } from "../solver/solve.ts";
+import { beltUsage, consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
 import { esc, el, groupedOptions, sw } from "./common.ts";
 import { planSettings } from "./planInput.ts";
@@ -40,7 +40,6 @@ export function mountCalculator(onSend: () => void): void {
   }
 
   function inputRows(inputs: Plan["inputs"]): string {
-    const beltPerSec = Number(state.belt);
     const rows = [...inputs.entries()].sort((a, b) =>
       a[1].imported === b[1].imported ? b[1].rate - a[1].rate : a[1].imported ? -1 : 1,
     );
@@ -48,8 +47,7 @@ export function mountCalculator(onSend: () => void): void {
       rows
         .map(([id, v]) => {
           const fluid = isFluid(id);
-          const lanes = v.rate / (beltPerSec / 2);
-          const belts = v.rate / beltPerSec;
+          const { lanes, belts } = beltUsage(v.rate, state.belt);
           return `<tr>
       <td><span class="item">${sw(id)}${esc(itemName(id))}</span></td>
       <td class="num">${rateStr(v.rate)}</td>

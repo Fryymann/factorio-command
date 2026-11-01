@@ -1,7 +1,9 @@
 // fcp-layouts from before the switch to game data name machines by the artifact's keys ("am2")
 // and belts by their rate ("15", sometimes the number 15). This maps them to entity names. A
 // value it doesn't recognise throws, naming the layout and the value, so the caller can refuse
-// the load and leave the saved data untouched rather than guess.
+// the load and leave the saved data untouched rather than guess. Version 2 data goes through it
+// too: entity names pass through unchanged, and every machine, belt and item is still checked.
+import { GAME } from "../data/game.ts";
 import { migrateBelt, migrateMach } from "../data/savedKeys.ts";
 import type { SavedLayout } from "./storage.ts";
 
@@ -24,9 +26,17 @@ function migrateLayout(L: SavedLayout): SavedLayout {
       ? "transport-belt"
       : (migrateBelt(v) ?? fail("belt", v));
 
+  const item = (v: unknown) => (typeof v === "string" && GAME.items[v] ? v : fail("item", v));
+
   const out: SavedLayout = {
     ...L,
-    nodes: (L.nodes ?? []).map((n) => (n.kind === "machine" ? { ...n, mach: mach(n.mach) } : n)),
+    nodes: (L.nodes ?? []).map((n) =>
+      n.kind === "machine"
+        ? { ...n, item: item(n.item), mach: mach(n.mach) }
+        : n.kind === "source"
+          ? { ...n, item: item(n.item) }
+          : n,
+    ),
     edges: (L.edges ?? []).map((e) => ({ ...e, belt: belt(e.belt) })),
   };
   if (L.bp && L.bp.belt !== undefined) out.bp = { ...L.bp, belt: belt(L.bp.belt) };

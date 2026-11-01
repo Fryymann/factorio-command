@@ -5,7 +5,7 @@
 // The target is already a number, and in "rate" mode already per second: parsing what the
 // player typed and converting from per minute happens in src/ui/planInput.ts (#19).
 // Recipes and machine speeds come from the game data (src/data/game.ts).
-import { GAME, machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
+import { GAME, belt, machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
 import type { Recipe } from "../data/types.ts";
 
 /** Assembler the plan uses for crafting recipes (entity name). */
@@ -177,4 +177,10 @@ export function consumption(build: BuildRow[], id: string): number {
     if (qty) r += (b.rate / productOf(rec, b.id)) * qty;
   }
   return r;
+}
+
+/** How many belt lanes and whole belts of `beltId` a rate (items/s) fills. */
+export function beltUsage(rate: number, beltId: string): { lanes: number; belts: number } {
+  const perBelt = belt(beltId).itemsPerSecond;
+  return { lanes: rate / (perBelt / 2), belts: rate / perBelt };
 }

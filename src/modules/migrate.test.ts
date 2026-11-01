@@ -84,6 +84,17 @@ describe("layouts saved by the artifact", () => {
   });
 });
 
+describe("items the game data doesn't have", () => {
+  it("refuse the load, naming the item, instead of breaking the Modules tab", () => {
+    const g = goldens.green.artifactGraph;
+    const nodes = g.nodes.map((n) => (n.kind === "source" ? { ...n, item: "unobtainium" } : n));
+    const r = loadLayouts(memory(artifactStore("green", { nodes, name: "Odd" })));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/Odd/);
+    expect(!r.ok && r.error).toMatch(/"unobtainium"/);
+  });
+});
+
 describe("version 2 layouts", () => {
   it("are saved with a version and load back without being changed", () => {
     const first = loadLayouts(memory(artifactStore("green")));
@@ -98,6 +109,20 @@ describe("version 2 layouts", () => {
     const state = JSON.parse(artifactStore("green"));
     const once = migrateLayouts(state.layouts);
     expect(migrateLayouts(once)).toEqual(once);
+  });
+
+  it("are checked too: an unknown machine refuses the load instead of breaking the tab later", () => {
+    const state = JSON.parse(artifactStore("green"));
+    const L = migrateLayouts(state.layouts).L1!;
+    const nodes = L.nodes.map((n) =>
+      n.kind === "machine" ? { ...n, mach: "assembling-machine-9" } : n,
+    );
+    const raw = JSON.stringify({ ...state, version: 2, layouts: { L1: { ...L, nodes } } });
+    const kv = memory(raw);
+    const r = loadLayouts(kv);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/"assembling-machine-9"/);
+    expect(kv.data.get(LAYOUTS_KEY)).toBe(raw);
   });
 
   it("refuses data from a newer version instead of guessing", () => {
