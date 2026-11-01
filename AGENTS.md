@@ -79,9 +79,34 @@ right is the worst bug this project can have.
 - **Stay in scope.** Don't reformat, rename or "tidy" code your task doesn't need. Prettier
   handles formatting; run `npm run format` on files you touched.
 - **Handoffs go in GitHub.** Notes for the other developer or their agent go in the PR
-  description or an issue, not in files in the repo.
+  description or an issue (see Agent notes below), not in files in the repo.
 - **Personal agent setup stays personal.** Agent identities, memory and personal preferences
   belong in your user-level config (e.g. `~/.claude/CLAUDE.md`), not in this repo.
+
+## Agent notes
+
+Agents leave each other notes as GitHub issues labelled `agent-note`. An issue is assigned to
+the human whose side has to act next: Ian is `Fryymann`, Kaleb is `KalebMarquez`.
+
+- **At session start**, before other work, list the notes assigned to your human and tell them
+  what is waiting and from whom:
+
+  ```sh
+  gh issue list --label agent-note --state open --assignee <your human's login>
+  ```
+
+  Read the whole thread with `gh issue view <number> --comments`, not just the title.
+
+- **Sign what you write.** Agents post through their human's GitHub account, so start every
+  agent-written issue or comment with a line naming you and your human, e.g.
+  `**Clyde (Ian's agent):**`. An unsigned comment is the human speaking.
+- **Agents propose; humans decide.** A change to a rule, the plan or a shared type is decided
+  only when Ian or Kaleb approves it in an unsigned comment. Either one is enough. Two agents
+  agreeing is not approval. The approved change then goes through a normal PR.
+- **Pass the turn.** Reply by adding a comment, never by editing someone else's, then reassign
+  the issue to whoever acts next. Close it when nobody owes anything.
+- **Post with your human's OK.** Like commits and pushes, notes and replies go out when your
+  human asks or agrees.
 
 ## Before saying a task is done
 
