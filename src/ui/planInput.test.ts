@@ -65,7 +65,11 @@ describe("planSettings", () => {
   });
 
   it("drops the UI-only fields", () => {
-    const r = planSettings({ ...DEFAULT_STATE, imports: ["iron-plate"] });
+    const r = planSettings({
+      ...DEFAULT_STATE,
+      imports: ["iron-plate"],
+      recipes: { "solid-fuel": "solid-fuel-from-heavy-oil" },
+    });
     expect(r).toEqual({
       ok: true,
       settings: {
@@ -75,6 +79,7 @@ describe("planSettings", () => {
         asm: "assembling-machine-2",
         furn: "steel-furnace",
         imports: ["iron-plate"],
+        recipes: { "solid-fuel": "solid-fuel-from-heavy-oil" },
       },
     });
   });

@@ -86,3 +86,35 @@ describe("planLayout matches the artifact", () => {
     expect(packRows.map((r) => r.part)).toEqual([0, 1]);
   });
 });
+
+describe("planLayout: a chosen recipe (#26)", () => {
+  it("writes the chosen recipe's id on the machines, not the item's", () => {
+    // Solid fuel has no recipe called "solid-fuel"; a blueprint naming one would be broken.
+    const sol = {
+      build: [
+        {
+          id: "solid-fuel",
+          recipe: "solid-fuel-from-heavy-oil",
+          rate: 1,
+          depth: 0,
+          exact: 1,
+          count: 1,
+          machine: {
+            name: "Chemical plant",
+            speed: 1,
+            ent: "chemical-plant",
+            size: 3,
+            burner: false,
+          },
+          mach: "chemical-plant",
+        },
+      ],
+      inputs: new Map([["heavy-oil", { rate: 20 }]]),
+    };
+    const LY = planLayout(sol, { belt: "transport-belt", ins: "fast", maxRow: 12 });
+    const machines = LY.ents.filter((e) => e.t === "machine");
+    expect(machines.map((m) => m.t === "machine" && m.recipe)).toEqual([
+      "solid-fuel-from-heavy-oil",
+    ]);
+  });
+});

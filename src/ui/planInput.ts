@@ -14,9 +14,9 @@ export function planSettings(s: CalcState): PlanInput {
     return { ok: false, error: `"${String(s.amount)}" isn't a number. Enter a target amount.` };
   }
   if (amt < 0) return { ok: false, error: "The target amount can't be negative." };
-  const { item, mode, asm, furn, imports } = s;
+  const { item, mode, asm, furn, imports, recipes } = s;
   return {
     ok: true,
-    settings: { item, mode, asm, furn, imports, amount: mode === "rate" ? amt / 60 : amt },
+    settings: { item, mode, asm, furn, imports, recipes, amount: mode === "rate" ? amt / 60 : amt },
   };
 }

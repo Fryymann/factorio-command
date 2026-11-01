@@ -92,3 +92,30 @@ describe("simulate: failures are loud", () => {
     expect(S.N.m!.starved).toBe(true);
   });
 });
+
+describe("simulate: a block's recipe (#26)", () => {
+  // Solid fuel, Factorio 2.1.24, chemical plant (speed 1), 1 s, 1 per craft: from light oil 10,
+  // from heavy oil 20.
+  const graph = (recipe?: string): ModuleGraph => ({
+    name: "x",
+    nodes: [
+      {
+        id: "m",
+        kind: "machine",
+        item: "solid-fuel",
+        count: 1,
+        mach: "chemical-plant",
+        ...(recipe ? { recipe } : {}),
+      },
+    ],
+    edges: [],
+  });
+
+  it("uses the item's default recipe when the block names none", () => {
+    expect(simulate(graph()).N.m!.need).toEqual({ "light-oil": 10 });
+  });
+
+  it("uses the block's recipe when it names one", () => {
+    expect(simulate(graph("solid-fuel-from-heavy-oil")).N.m!.need).toEqual({ "heavy-oil": 20 });
+  });
+});

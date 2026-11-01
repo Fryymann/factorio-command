@@ -154,7 +154,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
   const maxRow = Math.max(1, Math.floor(Number(st.maxRow) || 12));
   const plans: RowPlan[] = [];
   for (const b of recs) {
-    const r = plannedRecipe(b.id);
+    const r = plannedRecipe(b.id, b.recipe);
     if (!r) throw new Error(`planLayout: unknown recipe ${b.id}`);
     const m = b.machine;
     const w = m.size;
@@ -208,7 +208,7 @@ export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSe
         w,
         ent: m.ent,
         mname: m.name,
-        recipe: r.categories.includes("smelting") ? null : b.id, // furnaces pick their recipe
+        recipe: r.categories.includes("smelting") ? null : r.id, // furnaces pick their recipe
         A,
         C,
         fluids,

@@ -6,6 +6,8 @@ export interface MachineNode {
   item: string;
   count: number | string;
   mach: string; // machine entity name, e.g. "assembling-machine-2"
+  /** The recipe the block runs, for an item with several (`recipesFor`); absent: the default. */
+  recipe?: string;
 }
 export interface SourceNode {
   id: string;

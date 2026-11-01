@@ -1,7 +1,7 @@
 // Module graph -> layout input. Ported from artifacts/FCP_v1-2.html (lines 1424-1473).
 // Unlike the artifact, nothing here reads globals or writes back into the saved layout.
 import { fmt } from "../data/format.ts";
-import { machine, itemName } from "../data/game.ts";
+import { GAME, machine, plannedRecipe, itemName } from "../data/game.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { Simulation } from "../modules/simulate.ts";
 import type { MachineNode, ModuleGraph, ModuleNode } from "../modules/types.ts";
@@ -32,6 +32,7 @@ export interface BuildMachine {
 
 export interface BuildEntry {
   id: string; // item made
+  recipe: string; // id of the recipe the machines run
   rate: number; // items/s
   depth: number;
   exact: number; // fractional machine count
@@ -70,14 +71,19 @@ export function graphDepth(S: Simulation): (id: string) => number {
   return d;
 }
 
+const recipeName = (id: string) => GAME.recipes[id]?.name ?? id;
+
 export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntry {
   const r = S.N[n.id];
   if (!r) throw new Error(`bpEntry: no simulation result for node ${n.id}`);
   const m = machine(n.mach);
+  const rec = plannedRecipe(n.item, n.recipe);
+  if (!rec) throw new Error(`bpEntry: no recipe for ${n.item}`);
   const cnt = Number(n.count) || 0;
   const T = r.T > 0 ? r.T : r.maxOut;
   return {
     id: n.item,
+    recipe: rec.id,
     rate: T,
     depth,
     exact: r.maxOut > 0 ? (cnt * T) / r.maxOut : 0,
@@ -138,6 +144,10 @@ export function bpSolution(L: ModuleGraph, bp: BpSettings): Solution {
     if (c.mach !== e.mach)
       warn.push(
         `${itemName(e.id)} is made in more than one building type. The whole-chain layout uses ${c.machine.name} for all of them.`,
+      );
+    if (c.recipe !== e.recipe)
+      warn.push(
+        `${itemName(e.id)} is made with more than one recipe. The whole-chain layout uses ${recipeName(c.recipe)} for all of them.`,
       );
     c.rate += e.rate;
     c.exact += e.exact;
