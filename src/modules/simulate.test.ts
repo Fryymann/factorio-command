@@ -48,7 +48,9 @@ describe("simulate: failures are loud", () => {
   it("throws on an unknown recipe instead of guessing", () => {
     const g: ModuleGraph = {
       name: "x",
-      nodes: [{ id: "a", kind: "machine", item: "not-an-item", count: 1, mach: "am2" }],
+      nodes: [
+        { id: "a", kind: "machine", item: "not-an-item", count: 1, mach: "assembling-machine-2" },
+      ],
       edges: [],
     };
     expect(() => simulate(g)).toThrow(/unknown recipe/);
@@ -69,12 +71,18 @@ describe("simulate: failures are loud", () => {
       name: "x",
       nodes: [
         { id: "s", kind: "source", item: "iron-plate", rate: 20 },
-        { id: "m", kind: "machine", item: "iron-gear-wheel", count: 40, mach: "am2" },
+        {
+          id: "m",
+          kind: "machine",
+          item: "iron-gear-wheel",
+          count: 40,
+          mach: "assembling-machine-2",
+        },
         { id: "o", kind: "output", item: null },
       ],
       edges: [
-        { id: "e1", from: "s", to: "m", belt: 15 },
-        { id: "e2", from: "m", to: "o", belt: 60 },
+        { id: "e1", from: "s", to: "m", belt: "transport-belt" },
+        { id: "e2", from: "m", to: "o", belt: "turbo-transport-belt" },
       ],
     };
     const S = simulate(g);

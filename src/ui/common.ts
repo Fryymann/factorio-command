@@ -1,5 +1,5 @@
 // Helpers shared by the tab views: DOM lookup, escaping, item swatches and item pickers.
-import { itemName } from "../data/game.ts";
+import { itemName, machine } from "../data/game.ts";
 import { ITEM_CLASS } from "../data/legacy.ts";
 import type { ItemClass } from "../data/legacy.ts";
 
@@ -31,6 +31,19 @@ export const SWATCH: Record<ItemClass, string> = {
   yellow: "--sw-yellow",
   fluid: "--sw-fluid",
 };
+
+// Short labels for machine boxes and pickers; the game has no short names.
+const MACHINE_SHORT: Record<string, string> = {
+  "assembling-machine-1": "AM1",
+  "assembling-machine-2": "AM2",
+  "assembling-machine-3": "AM3",
+  "stone-furnace": "Stone furnace",
+  "steel-furnace": "Steel furnace",
+  "electric-furnace": "Electric furnace",
+  "chemical-plant": "Chem plant",
+};
+/** A machine's short label, or its game name when it has none. */
+export const machineShort = (id: string): string => MACHINE_SHORT[id] ?? machine(id).name;
 
 export const swatchVar = (id: string | null): string =>
   `var(${SWATCH[(id && ITEM_CLASS[id]) || "raw"]})`;

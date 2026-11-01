@@ -1,13 +1,11 @@
 // Calculator settings shared by every tab (the artifact's global `state`). Loaded once from
 // `fcp-state`. Rates stay per second everywhere except `rateStr`, which converts for display.
-import { plannedRecipe } from "../data/game.ts";
 import { fmt } from "../data/format.ts";
 import { loadState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
 
 const loaded = loadState();
 export const state: CalcState = loaded.state;
-if (!plannedRecipe(state.item)) state.item = "logistic-science-pack";
 export const stateLoadError: string | undefined = loaded.error;
 
 export const rateStr = (r: number): string =>

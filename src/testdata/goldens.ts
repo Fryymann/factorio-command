@@ -1,10 +1,15 @@
 // Reference values produced by the artifact itself (scripts/artifact-goldens.mjs).
 import { createHash } from "node:crypto";
 import data from "./artifact-goldens.json" with { type: "json" };
+import { migrateLayouts } from "../modules/migrate.ts";
+import type { SavedLayout } from "../modules/storage.ts";
 import type { ModuleGraph } from "../modules/types.ts";
 
 export interface Golden {
+  /** The artifact's module graph, migrated to entity names by the app's own migration. */
   graph: ModuleGraph;
+  /** The same graph exactly as the artifact saved it ("am2", belt "15"). */
+  artifactGraph: ModuleGraph;
   solBuild: {
     id: string;
     rate: number;
@@ -39,7 +44,14 @@ export interface Golden {
 }
 
 /** green: 8 AM2 of logistic science from plates. blue: 10 AM2 of chemical science from plates. */
-export const goldens = data as unknown as { green: Golden; blue: Golden };
+export const goldens = Object.fromEntries(
+  Object.entries(data as unknown as Record<string, Golden>).map(([name, g]) => {
+    const artifactGraph = g.graph;
+    const L = migrateLayouts({ g: { id: "g", ...artifactGraph } as SavedLayout }).g!;
+    const graph: ModuleGraph = { name: L.name, nodes: L.nodes, edges: L.edges };
+    return [name, { ...g, graph, artifactGraph }];
+  }),
+) as { green: Golden; blue: Golden };
 
 /** Hash of a value with object keys sorted, as the generator computes it. */
 export function canonHash(v: unknown): string {

@@ -5,33 +5,22 @@
 // The target is already a number, and in "rate" mode already per second: parsing what the
 // player typed and converting from per minute happens in src/ui/planInput.ts (#19).
 // Recipes and machine speeds come from the game data (src/data/game.ts).
-import { machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
+import { GAME, machine, machinesFor, plannedRecipe, productOf } from "../data/game.ts";
 import type { Recipe } from "../data/types.ts";
 
-export type AsmSpeed = "0.5" | "0.75" | "1.25";
-export type FurnaceKey = "stone" | "steel" | "electric";
+/** Assembler the plan uses for crafting recipes (entity name). */
+export type AssemblerId = "assembling-machine-1" | "assembling-machine-2" | "assembling-machine-3";
+/** Furnace the plan uses for smelting (entity name). */
+export type FurnaceId = "stone-furnace" | "steel-furnace" | "electric-furnace";
 export type TargetMode = "buildings" | "rate";
-
-// The settings' old keys, as saved in fcp-state. Task 4 of the switch-over replaces them with
-// entity ids and deletes these tables.
-const ASM_ENTITY: Record<AsmSpeed, string> = {
-  "0.5": "assembling-machine-1",
-  "0.75": "assembling-machine-2",
-  "1.25": "assembling-machine-3",
-};
-const FURN_ENTITY: Record<FurnaceKey, string> = {
-  stone: "stone-furnace",
-  steel: "steel-furnace",
-  electric: "electric-furnace",
-};
 
 export interface PlanSettings {
   item: string;
   /** Buildings of the final product, or in "rate" mode items per second of it. */
   amount: number;
   mode: TargetMode;
-  asm: AsmSpeed;
-  furn: FurnaceKey;
+  asm: AssemblerId;
+  furn: FurnaceId;
   imports: string[];
 }
 
@@ -92,10 +81,12 @@ export function machineFor(
   s: Pick<PlanSettings, "asm" | "furn">,
   warnings: Set<string>,
 ): PlanMachine {
-  const furn = FURN_ENTITY[s.furn];
-  if (!furn) throw new Error(`Unknown furnace "${String(s.furn)}"`);
-  const asm = ASM_ENTITY[s.asm];
-  if (!asm) throw new Error(`Unknown assembler speed "${String(s.asm)}"`);
+  const furn = s.furn;
+  const asm = s.asm;
+  if (!GAME.machines[furn]?.categories.includes("smelting"))
+    throw new Error(`Unknown furnace "${String(furn)}"`);
+  if (!GAME.machines[asm]?.categories.includes("crafting"))
+    throw new Error(`Unknown assembler "${String(asm)}"`);
   const ids = machinesFor(recipe).map((m) => m.id);
   let id: string;
   if (ids.includes(furn)) id = furn;

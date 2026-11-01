@@ -2,22 +2,12 @@
 // section of artifacts/FCP_v1-2.html (lines 654-1212). The maths lives in src/modules/; this file
 // only draws it and handles input. Saving goes through src/modules/storage.ts, which reports
 // failures; if saved layouts can't be read, nothing is written so they are never overwritten.
-import {
-  BELT_KEY_TIERS,
-  BELTS,
-  beltByKey,
-  isFluid,
-  machine,
-  plannedRecipe,
-  itemName,
-} from "../data/game.ts";
-import { ITEM_CLASS, MACH_ENTITY, MACH_SHORT } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
+import { BELTS, isFluid, machine, plannedRecipe, itemName } from "../data/game.ts";
+import { ITEM_CLASS } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { NodeResult, Simulation } from "../modules/simulate.ts";
 import {
-  MACH_KEYS,
   NODE_W,
   canConnect,
   defaultMach,
@@ -30,7 +20,16 @@ import {
 } from "../modules/fromCalc.ts";
 import type { PlacedLayout, PlacedNode } from "../modules/fromCalc.ts";
 import { solve } from "../solver/solve.ts";
-import { PICKABLE, el, esc, groupedOptions, itemOptions, sw, swatchVar } from "./common.ts";
+import {
+  PICKABLE,
+  el,
+  esc,
+  groupedOptions,
+  itemOptions,
+  machineShort,
+  sw,
+  swatchVar,
+} from "./common.ts";
 import { rateStr, state, unitLbl } from "./state.ts";
 import { planSettings } from "./planInput.ts";
 import { DEFAULT_STATE } from "./storage.ts";
@@ -120,7 +119,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         .join("");
       return `<div class="${cls}${bad ? " bad" : ""}" ${pos}>
       <div class="bn-head"><span class="item">${sw(n.item)}<span class="t">${esc(itemName(n.item))}</span></span><span class="bn-pct" title="How busy these buildings are">${Math.round(util * 100)}%</span></div>
-      <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${MACH_SHORT[n.mach]}</span></div>
+      <div class="bn-sub"><span>${fmt(Number(n.count) || 0, 2)} × ${machineShort(n.mach)}</span></div>
       <div class="bn-sec"><span>In</span><span>got / need ${u}</span></div>${rows}
       <div class="bn-out"><span>Out</span><span class="v">${rateStr(r.A)} / ${rateStr(r.maxOut)} max</span></div>
       <span class="port in"></span><span class="port out" data-port="${n.id}" title="Drag to another block to add a belt"></span></div>`;
@@ -276,10 +275,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
           `${b} doesn't use ${item}, so the belt from ${a} carries nothing.`,
         ]);
       else if (s.beltLimited) {
-        const key = String(e.belt);
-        const tier = ["15", "30", "45", "60"].includes(key)
-          ? beltByKey(key).name
-          : (BELTS[key]?.name ?? "belt");
+        const tier = BELTS[e.belt]?.name ?? "belt";
         list.push([
           `edge:${e.id}`,
           `Belt ${a} → ${b} is full: it needs ${rateStr(s.wanted)}${u}, a ${tier} carries ${rateStr(s.cap)}${u}. Use a faster belt or add a second one.`,
@@ -294,7 +290,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     const bld: Record<string, number> = {};
     for (const n of L.nodes) {
       if (n.kind !== "machine") continue;
-      const k = machine(MACH_ENTITY[n.mach]).name;
+      const k = machine(n.mach).name;
       bld[k] = (bld[k] ?? 0) + (Number(n.count) || 0);
     }
     el("pl-totals").innerHTML = Object.entries(bld)
@@ -323,7 +319,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       )
         .map(
           (k) =>
-            `<option value="${k}"${k === m.mach ? " selected" : ""}>${machine(MACH_ENTITY[k]).name}</option>`,
+            `<option value="${k}"${k === m.mach ? " selected" : ""}>${machine(k).name}</option>`,
         )
         .join("")}</select></div>
       <div class="stats" id="pl-stats"></div>
@@ -339,7 +335,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
         renderPlanner();
       });
       el("pf-mach").addEventListener("change", (ev) => {
-        m.mach = val(ev) as MachineKey;
+        m.mach = val(ev);
         renderPlanner();
       });
     } else if (n?.kind === "source") {
@@ -369,10 +365,12 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
       ${
         fluid
           ? `<p class="help">Fluids go by pipe. Pipe throughput isn't limited here.</p>`
-          : `<div class="field"><label for="pf-belt">Belt type</label><select id="pf-belt">${BELT_KEY_TIERS()
+          : `<div class="field"><label for="pf-belt">Belt type</label><select id="pf-belt">${Object.entries(
+              BELTS,
+            )
               .map(
                 ([k, v]) =>
-                  `<option value="${k}"${k === String(e.belt) ? " selected" : ""}>${v.name} (${fmt(v.itemsPerSecond * Number(state.unit))}${unitLbl()})</option>`,
+                  `<option value="${k}"${k === e.belt ? " selected" : ""}>${v.name} (${fmt(v.itemsPerSecond * Number(state.unit))}${unitLbl()})</option>`,
               )
               .join("")}</select></div>`
       }

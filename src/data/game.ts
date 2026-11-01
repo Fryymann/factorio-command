@@ -174,23 +174,3 @@ export function belt(id: string): BeltTier {
   if (!b) throw new Error(`Unknown belt "${id}"`);
   return b;
 }
-
-// The old belt keys (items per second), still used by saved data until Task 4 of the switch-over
-// replaces them with belt entity ids and deletes this table.
-const BELT_BY_RATE: Record<string, string> = {
-  "15": "transport-belt",
-  "30": "fast-transport-belt",
-  "45": "express-transport-belt",
-  "60": "turbo-transport-belt",
-};
-
-/** The old belt keys with their tiers, slowest first, for pickers that still store old keys. */
-export const BELT_KEY_TIERS = (): [string, BeltTier][] =>
-  Object.keys(BELT_BY_RATE).map((k) => [k, beltByKey(k)]);
-
-/** The belt tier for an old key ("15", or the number 15). Throws on anything else. */
-export function beltByKey(key: string | number): BeltTier {
-  const id = BELT_BY_RATE[String(key)];
-  if (!id) throw new Error(`Unknown belt tier ${JSON.stringify(key)}`);
-  return belt(id);
-}

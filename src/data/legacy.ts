@@ -1,6 +1,6 @@
-// Hand-written tables that the game data doesn't cover yet, ported from artifacts/FCP_v1-2.html.
-// Recipes, machines, belts and fuel now come from src/data/game.ts. What's left here goes in the
-// next step of the switch-over (docs/game-data-switchover-plan.md): the old machine keys (Task 4). Inserter throughput stays hand-written: the game doesn't store it.
+// Hand-written tables the game data doesn't cover, ported from artifacts/FCP_v1-2.html. Recipes,
+// machines, belts, fuel and names come from src/data/game.ts. What's left: item colour classes (a
+// UI choice) and inserter throughput, which the game doesn't store directly.
 
 export type ItemClass =
   | "raw"
@@ -63,31 +63,6 @@ export const ITEM_CLASS: Record<string, ItemClass> = {
   "chemical-science-pack": "blue",
   "production-science-pack": "purple",
   "utility-science-pack": "yellow",
-};
-
-export type MachineKey = "am1" | "am2" | "am3" | "stone" | "steel" | "electric" | "chem";
-
-/** The artifact's machine keys, still used by saved layouts until Task 4 renames them. */
-export const MACH_ENTITY: Record<MachineKey, string> = {
-  am1: "assembling-machine-1",
-  am2: "assembling-machine-2",
-  am3: "assembling-machine-3",
-  stone: "stone-furnace",
-  steel: "steel-furnace",
-  electric: "electric-furnace",
-  chem: "chemical-plant",
-};
-export const MACH_KEYS = Object.keys(MACH_ENTITY) as MachineKey[];
-
-/** Short labels for the Modules boxes; the game has no short names. */
-export const MACH_SHORT: Record<MachineKey, string> = {
-  am1: "AM1",
-  am2: "AM2",
-  am3: "AM3",
-  stone: "Stone furnace",
-  steel: "Steel furnace",
-  electric: "Electric furnace",
-  chem: "Chem plant",
 };
 
 export interface InserterType {

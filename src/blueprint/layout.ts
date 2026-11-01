@@ -3,7 +3,7 @@
 // Coordinates are tiles; x grows east, y grows south. Rates are per second.
 import {
   GAME,
-  beltByKey,
+  belt as beltTier,
   isFluid,
   machine,
   plannedRecipe,
@@ -143,7 +143,7 @@ function burnerFuel(machineId: string): number {
 }
 
 export function planLayout(sol: Pick<Solution, "build" | "inputs">, st: LayoutSettings): Layout {
-  const tier = beltByKey(st.belt);
+  const tier = beltTier(st.belt);
   const laneCap = tier.itemsPerSecond / 2;
   const U = tier.U;
   const insT = (INSERTERS as Record<string, InserterType>)[st.ins] ?? INSERTERS.fast;

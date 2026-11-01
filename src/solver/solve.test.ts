@@ -6,8 +6,8 @@ const base: PlanSettings = {
   item: "logistic-science-pack",
   amount: 8,
   mode: "buildings",
-  asm: "0.75",
-  furn: "steel",
+  asm: "assembling-machine-2",
+  furn: "steel-furnace",
   imports: [],
 };
 
@@ -93,7 +93,12 @@ describe("solve: modes, imports, machines", () => {
   });
 
   it("fluid recipes on assembling machine 1 fall back to 2 and warn", () => {
-    const plan = solve({ ...base, item: "processing-unit", amount: 1, asm: "0.5" });
+    const plan = solve({
+      ...base,
+      item: "processing-unit",
+      amount: 1,
+      asm: "assembling-machine-1",
+    });
     expect(plan.warnings).toContain(FLUID_ASM_WARNING);
     const pu = plan.build.find((b) => b.id === "processing-unit");
     expect(pu?.machine.speed).toBe(0.75);
@@ -108,7 +113,7 @@ describe("solve: modes, imports, machines", () => {
   });
 
   it("furnace speed changes the count", () => {
-    const plan = solve({ ...base, furn: "stone" });
+    const plan = solve({ ...base, furn: "stone-furnace" });
     expect(plan.build.find((b) => b.id === "iron-plate")?.exact).toBeCloseTo(17.6, 9);
   });
 

@@ -8,8 +8,8 @@ import { blueprintObject } from "../blueprint/export.ts";
 import { encodeBlueprint } from "../blueprint/encode.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import type { Layout, LayoutEnt } from "../blueprint/layout.ts";
-import { beltByKey, isFluid, itemName } from "../data/game.ts";
-import { INS_KINDS, ITEM_CLASS, MACH_SHORT } from "../data/legacy.ts";
+import { belt, isFluid, itemName } from "../data/game.ts";
+import { INS_KINDS, ITEM_CLASS } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import * as actions from "../editor/actions.ts";
 import type { EditSession, Tool } from "../editor/actions.ts";
@@ -22,7 +22,7 @@ import { canMoveGroup, deleteGroup, selectInBox } from "../editor/selection.ts";
 import type { TileBox } from "../editor/selection.ts";
 import type { Dir, EdEnt, EditDoc, InsKind } from "../editor/types.ts";
 import type { PlacedLayout } from "../modules/fromCalc.ts";
-import { esc, el, sw } from "./common.ts";
+import { esc, el, machineShort, sw } from "./common.ts";
 import {
   BELT_TOK,
   INS_TOK,
@@ -107,7 +107,7 @@ export function mountBlueprint(): BlueprintTab {
     L.bp = bp;
     return bp;
   }
-  const tierOf = (bp: BpSettings) => beltByKey(bp.belt);
+  const tierOf = (bp: BpSettings) => belt(bp.belt);
 
   let warnings: string[] = [];
   let staleButtons = false;
@@ -135,7 +135,7 @@ export function mountBlueprint(): BlueprintTab {
         ? `<optgroup label="Single module">${ms
             .map(
               (n) =>
-                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${itemName(n.item)}` : "")} · ${MACH_SHORT[n.kind === "machine" ? n.mach : "am2"]}</option>`,
+                `<option value="${n.id}">${esc(n.kind === "machine" ? `${fmt(Number(n.count) || 0, 2)}× ${itemName(n.item)}` : "")} · ${n.kind === "machine" ? machineShort(n.mach) : ""}</option>`,
             )
             .join("")}</optgroup>`
         : "");

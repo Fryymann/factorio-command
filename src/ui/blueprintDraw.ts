@@ -16,10 +16,10 @@ export const PAD_RIGHT = 16;
 
 /** CSS custom properties that name each belt tier and inserter kind's colour. */
 export const BELT_TOK: Record<string, string> = {
-  "15": "--belt-1",
-  "30": "--belt-2",
-  "45": "--belt-3",
-  "60": "--belt-4",
+  "transport-belt": "--belt-1",
+  "fast-transport-belt": "--belt-2",
+  "express-transport-belt": "--belt-3",
+  "turbo-transport-belt": "--belt-4",
 };
 export const INS_TOK: Record<string, string> = {
   basic: "--ins-basic",

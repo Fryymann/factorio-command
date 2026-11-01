@@ -45,8 +45,8 @@ describe("planSettings", () => {
         item: "logistic-science-pack",
         amount: 8,
         mode: "buildings",
-        asm: "0.75",
-        furn: "steel",
+        asm: "assembling-machine-2",
+        furn: "steel-furnace",
         imports: ["iron-plate"],
       },
     });

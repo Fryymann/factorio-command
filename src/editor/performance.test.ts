@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bpSolution, resolveBpSettings } from "../blueprint/fromModules.ts";
 import { planLayout } from "../blueprint/layout.ts";
-import { beltByKey } from "../data/game.ts";
+import { belt } from "../data/game.ts";
 import { goldens } from "../testdata/goldens.ts";
 import * as act from "./actions.ts";
 import { edFromLayout } from "./fromLayout.ts";
@@ -21,11 +21,11 @@ function largeChain() {
           ? { ...n, rate: Number(n.rate) * k }
           : n,
     ),
-    edges: g.edges.map((e) => ({ ...e, belt: 60 })),
+    edges: g.edges.map((e) => ({ ...e, belt: "turbo-transport-belt" })),
   };
-  const bp = resolveBpSettings({ belt: "60" }, "60");
+  const bp = resolveBpSettings({ belt: "turbo-transport-belt" }, "turbo-transport-belt");
   const doc = edFromLayout(planLayout(bpSolution(graph, bp), bp), bp);
-  return { doc, U: beltByKey("60").U };
+  return { doc, U: belt("turbo-transport-belt").U };
 }
 
 describe("large chain", () => {
@@ -69,9 +69,9 @@ describe("large chain", () => {
 
 describe("undo restores exactly", () => {
   const fresh = () => {
-    const bp = resolveBpSettings(undefined, "15");
+    const bp = resolveBpSettings(undefined, "transport-belt");
     const doc = edFromLayout(planLayout(bpSolution(goldens.green.graph, bp), bp), bp);
-    return act.createSession(doc, beltByKey("15").U);
+    return act.createSession(doc, belt("transport-belt").U);
   };
 
   it("puts a removed entity back at the same place in the list", () => {

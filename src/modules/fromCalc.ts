@@ -2,10 +2,8 @@
 // Ported from `layoutFromCalc`, `defaultMach`, `machOptions` and `newLayout`
 // (artifacts/FCP_v1-2.html, lines 664-678, 689 and 702-735). Pure: ids come from the caller.
 import { machinesFor, plannedRecipe } from "../data/game.ts";
-import { MACH_ENTITY, MACH_KEYS } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
 import { machineFor } from "../solver/solve.ts";
-import type { AsmSpeed, FurnaceKey, Plan } from "../solver/solve.ts";
+import type { AssemblerId, FurnaceId, Plan } from "../solver/solve.ts";
 import type { MachineNode, ModuleEdge, ModuleNode, OutputNode, SourceNode } from "./types.ts";
 import type { SavedLayout } from "./storage.ts";
 
@@ -24,9 +22,6 @@ export interface PlacedLayout extends SavedLayout {
   needsFit?: boolean;
 }
 
-export const ASM_KEY: Record<AsmSpeed, MachineKey> = { "0.5": "am1", "0.75": "am2", "1.25": "am3" };
-export { MACH_KEYS };
-
 function recipeOf(item: string) {
   const r = plannedRecipe(item);
   if (!r) throw new Error(`No recipe for "${item}"`);
@@ -34,16 +29,13 @@ function recipeOf(item: string) {
 }
 
 /** Building types that can run this item's recipe. */
-export function machOptions(item: string): MachineKey[] {
-  const ids = machinesFor(recipeOf(item)).map((m) => m.id);
-  return MACH_KEYS.filter((k) => ids.includes(MACH_ENTITY[k]));
+/** Machines that can make this item's recipe (entity names), slowest first. */
+export function machOptions(item: string): string[] {
+  return machinesFor(recipeOf(item)).map((m) => m.id);
 }
 
-export function defaultMach(item: string, s: { asm: AsmSpeed; furn: FurnaceKey }): MachineKey {
-  const id = machineFor(recipeOf(item), s, new Set()).id;
-  const key = MACH_KEYS.find((k) => MACH_ENTITY[k] === id);
-  if (!key) throw new Error(`No machine key for "${id}"`);
-  return key;
+export function defaultMach(item: string, s: { asm: AssemblerId; furn: FurnaceId }): string {
+  return machineFor(recipeOf(item), s, new Set()).id;
 }
 
 export function newLayout(id: string, name: string): PlacedLayout {
@@ -53,8 +45,8 @@ export function newLayout(id: string, name: string): PlacedLayout {
 export interface CalcSource {
   plan: Pick<Plan, "build" | "inputs">;
   item: string;
-  asm: AsmSpeed;
-  furn: FurnaceKey;
+  asm: AssemblerId;
+  furn: FurnaceId;
   belt: string;
 }
 

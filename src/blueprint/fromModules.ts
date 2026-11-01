@@ -2,8 +2,6 @@
 // Unlike the artifact, nothing here reads globals or writes back into the saved layout.
 import { fmt } from "../data/format.ts";
 import { machine, itemName } from "../data/game.ts";
-import { MACH_ENTITY } from "../data/legacy.ts";
-import type { MachineKey } from "../data/legacy.ts";
 import { simulate } from "../modules/simulate.ts";
 import type { Simulation } from "../modules/simulate.ts";
 import type { MachineNode, ModuleGraph, ModuleNode } from "../modules/types.ts";
@@ -39,7 +37,7 @@ export interface BuildEntry {
   exact: number; // fractional machine count
   count: number;
   machine: BuildMachine;
-  mach: MachineKey;
+  mach: string; // machine entity name
 }
 
 export interface Solution {
@@ -74,10 +72,8 @@ export function graphDepth(S: Simulation): (id: string) => number {
 
 export function bpEntry(n: MachineNode, S: Simulation, depth: number): BuildEntry {
   const r = S.N[n.id];
-  const machId = MACH_ENTITY[n.mach];
   if (!r) throw new Error(`bpEntry: no simulation result for node ${n.id}`);
-  if (!machId) throw new Error(`bpEntry: unknown machine ${n.mach}`);
-  const m = machine(machId);
+  const m = machine(n.mach);
   const cnt = Number(n.count) || 0;
   const T = r.T > 0 ? r.T : r.maxOut;
   return {
