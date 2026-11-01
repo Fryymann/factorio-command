@@ -1,6 +1,6 @@
 # Factorio Chain Planner
 
-A planner for Factorio 2.0 production chains, with three parts:
+A planner for Factorio 2.1 production chains, with three parts:
 
 - **Calculator.** Pick an item and a target (a building count or a rate). It works out every
   intermediate, how many buildings each needs, and the raw inputs. You can mark items as
@@ -10,7 +10,7 @@ A planner for Factorio 2.0 production chains, with three parts:
 - **Blueprint.** Turns a module or a whole chain into a tile layout with belts, inserters and
   poles, lets you edit it, and exports a blueprint string you can paste into the game.
 
-It targets **Factorio 2.0, base game**. The data model is meant to grow to Space Age later.
+It targets **Factorio 2.1, base game**. The data model is meant to grow to Space Age later.
 
 ## Status
 

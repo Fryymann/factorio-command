@@ -9,7 +9,7 @@ that is being ported from `artifacts/`.
 
 ## The project in one paragraph
 
-A Factorio 2.0 (base game) production planner: a calculator, a module graph with flow
+A Factorio 2.1 (base game) production planner: a calculator, a module graph with flow
 simulation, and a blueprint generator and editor. The working version is the single file
 `artifacts/FCP_v1-2.html`. It is being ported into Vite + TypeScript under `src/`. The build
 is still a single self-contained `dist/index.html`.
@@ -61,8 +61,8 @@ right is the worst bug this project can have.
 - **Game data comes from the game.** Recipes, machines and speeds come from the extracted data
   dump, not from memory or the wiki. If something is missing from the data, extend the
   extractor.
-- **Blueprints target 2.0.** 16-way directions (N=0, E=4, S=8, W=12), version
-  `562949953421312`, and the string format in `src/blueprint/encode.ts`. Space Age entities
+- **Blueprints target 2.1.** 16-way directions (N=0, E=4, S=8, W=12), version
+  `562954249961473` (2.1.24.1, read from a blueprint the game exported), and the string format in `src/blueprint/encode.ts`. Space Age entities
   (turbo belts, etc.) must sit behind a Space Age setting.
 - **Saved user data survives.** `localStorage` keys `fcp-state` and `fcp-layouts` hold people's
   work. If you change the shape, write a migration and test it.

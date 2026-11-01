@@ -4,9 +4,10 @@
 //
 // Inserter direction: Factorio stores the *pickup* side, so the drop direction is written as
 // DIR16[OPP[dir]]. The generated path used a hard-coded 0 (north), and every generated inserter
-// drops south (OPP[S] = N = 0), so the merge changes no output. The OPP convention itself has not
-// been checked in game; see the PR description.
-import { BLUEPRINT_VERSION_2_0 } from "./encode.ts";
+// drops south (OPP[S] = N = 0), so the merge changes no output. Checked in Factorio 2.1.24 for
+// direction 0: inserters above a machine load it and inserters below unload it (Ian, 2026-11-01).
+// The other three directions follow the same rule but haven't been seen in game.
+import { BLUEPRINT_VERSION } from "./encode.ts";
 import { INS_KINDS } from "../data/legacy.ts";
 import type { BeltTier } from "../data/legacy.ts";
 import { foot, OPP } from "../editor/geometry.ts";
@@ -44,7 +45,7 @@ function wrap(
     entities,
     item: "blueprint",
     label: label.slice(0, 100),
-    version: BLUEPRINT_VERSION_2_0,
+    version: BLUEPRINT_VERSION,
   };
   if (icon) bp.icons = [{ signal: { type: "item", name: icon }, index: 1 }];
   return { blueprint: bp };
