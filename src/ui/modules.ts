@@ -23,6 +23,9 @@ import type { PlacedLayout, PlacedNode } from "../modules/fromCalc.ts";
 import { solve } from "../solver/solve.ts";
 import { PICKABLE, el, esc, groupedOptions, itemOptions, sw, swatchVar } from "./common.ts";
 import { rateStr, state, unitLbl } from "./state.ts";
+import { planSettings } from "./planInput.ts";
+import { DEFAULT_STATE } from "./storage.ts";
+import type { CalcState } from "./storage.ts";
 import * as store from "./store.ts";
 
 const PORT_Y = 19;
@@ -78,8 +81,11 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
   };
   const isSel = (type: string, id: string): boolean => PL.sel?.type === type && PL.sel.id === id;
 
-  const calcLayout = (name: string): PlacedLayout =>
-    layoutFromCalc({ plan: solve(state), ...state }, name, uid);
+  const calcLayout = (name: string, s: CalcState = state): PlacedLayout => {
+    const input = planSettings(s);
+    if (!input.ok) throw new Error(input.error);
+    return layoutFromCalc({ plan: solve(input.settings), ...s }, name, uid);
+  };
 
   store.onMessage((m) => {
     el("pl-warn").innerHTML = m ? `<div class="warnbox">${esc(m)}</div>` : "";
@@ -771,7 +777,12 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     showLayout();
   });
 
-  store.loadStore(() => calcLayout(`Example: ${short(state.item)}`));
+  // The example follows the calculator, unless its amount is unusable (blank, say): then it is
+  // built from the default settings and named after their item, so the label stays true.
+  store.loadStore(() => {
+    const s = planSettings(state).ok ? state : DEFAULT_STATE;
+    return calcLayout(`Example: ${short(s.item)}`, s);
+  });
   renderLayoutBar();
   renderPlanner();
   renderInspector();

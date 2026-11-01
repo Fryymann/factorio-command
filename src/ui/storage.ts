@@ -4,7 +4,12 @@ import type { AsmSpeed, FurnaceKey, PlanSettings, TargetMode } from "../solver/s
 
 export const STATE_KEY = "fcp-state";
 
-export interface CalcState extends PlanSettings {
+/**
+ * What the calculator form holds, saved as-is. `amount` is what the player typed, and in "rate"
+ * mode it is per minute; `planSettings` (planInput.ts) turns it into solver input.
+ */
+export interface CalcState extends Omit<PlanSettings, "amount"> {
+  amount: number | string;
   belt: string;
   unit: "60" | "1";
 }

@@ -2,6 +2,8 @@
 // (artifacts/FCP_v1-2.html, lines 500-547). Pure: settings in, plan out. Rates are per second.
 // Differences from the artifact: unknown items and machine settings throw instead of
 // crashing later with a TypeError, and the settings are passed in rather than read from a global.
+// The target is already a number, and in "rate" mode already per second: parsing what the
+// player typed and converting from per minute happens in src/ui/planInput.ts (#19).
 import { RECIPES } from "../data/legacy.ts";
 import type { LegacyRecipe } from "../data/legacy.ts";
 
@@ -22,7 +24,8 @@ export const ASM_NAME: Record<AsmSpeed, string> = {
 
 export interface PlanSettings {
   item: string;
-  amount: number | string;
+  /** Buildings of the final product, or in "rate" mode items per second of it. */
+  amount: number;
   mode: TargetMode;
   asm: AsmSpeed;
   furn: FurnaceKey;
@@ -96,11 +99,12 @@ export function machineFor(
   return { name, speed: parseFloat(sp) };
 }
 
-/** Items per second of the final product. */
+/** Items per second of the final product. Throws on a negative or non-finite amount. */
 export function targetRate(s: PlanSettings): number {
   const r = recipeOf(s.item);
-  const amt = Math.max(0, Number(s.amount) || 0);
-  if (s.mode === "rate") return amt / 60;
+  const amt = s.amount;
+  if (!Number.isFinite(amt) || amt < 0) throw new Error(`Invalid target amount ${String(amt)}`);
+  if (s.mode === "rate") return amt;
   const m = machineFor(r.kind, s, new Set());
   return (amt * m.speed * r.out) / r.time;
 }
