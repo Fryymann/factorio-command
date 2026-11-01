@@ -3,8 +3,12 @@
 
 const VERSION_BYTE = "0";
 
-/** Factorio 2.0.0 blueprint version number, as written by the artifacts. */
-export const BLUEPRINT_VERSION_2_0 = 562949953421312;
+/**
+ * Blueprint version number: four 16-bit fields, major.minor.patch.build. This is 2.1.24.1, read
+ * from a blueprint exported by Factorio 2.1.24 (see encode.test.ts). The artifacts wrote 2.0.0.0
+ * (562949953421312).
+ */
+export const BLUEPRINT_VERSION = 562954249961473;
 
 export async function encodeBlueprint(obj: unknown): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(obj));

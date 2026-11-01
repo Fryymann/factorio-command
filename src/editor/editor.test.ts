@@ -224,6 +224,11 @@ describe("editor actions", () => {
 
 describe("blueprint export (one exporter)", () => {
   const tierOf = (bp: { belt: string }) => BELT_TIERS[bp.belt]!;
+  // The artifact writes version 2.0.0.0. We now write 2.1.24.1 on purpose (tested below), so the
+  // goldens are compared with the artifact's version put back; everything else must still match.
+  const asArtifact = (o: ReturnType<typeof blueprintObject>) => ({
+    blueprint: { ...o.blueprint, version: 562949953421312 },
+  });
 
   for (const name of ["green", "blue"] as const) {
     it(`${name}: reproduces both of the artifact's exporters`, () => {
@@ -231,24 +236,27 @@ describe("blueprint export (one exporter)", () => {
       // artifact's generated-layout exporter
       const gen = blueprintObject(doc.ents, tierOf(bp), sol.icon, sol.label);
       expect(gen.blueprint.entities).toHaveLength(goldens[name].bpoN);
-      expect(canonHash(gen)).toBe(goldens[name].bpoHash);
+      expect(canonHash(asArtifact(gen))).toBe(goldens[name].bpoHash);
       // artifact's edited exporter
       const ed = blueprintObject(doc.ents, tierOf(bp), sol.icon, sol.label + " (edited)");
-      expect(canonHash(ed)).toBe(goldens[name].edBpoHash);
+      expect(canonHash(asArtifact(ed))).toBe(goldens[name].edBpoHash);
       expect(ed.blueprint.label).toBe(goldens[name].edBpoLabel);
     });
   }
 
-  it("targets Factorio 2.0: version and 16-way directions", () => {
-    // https://wiki.factorio.com/Blueprint_string_format: N=0, E=4, S=8, W=12 in 2.0
+  it("targets Factorio 2.1: version and 16-way directions", () => {
+    // https://wiki.factorio.com/Blueprint_string_format: N=0, E=4, S=8, W=12 since 2.0.
+    // Version 2.1.24.1 is what Factorio 2.1.24 writes (see encode.test.ts).
     expect(DIR16).toEqual({ N: 0, E: 4, S: 8, W: 12 });
     const { sol, doc, bp } = setup("green");
     expect(blueprintObject(doc.ents, tierOf(bp), sol.icon, sol.label).blueprint.version).toBe(
-      562949953421312,
+      562954249961473,
     );
   });
 
   it("writes the pickup side for inserters, from the drop direction", () => {
+    // Direction 0 confirmed in Factorio 2.1.24: it picks up from the north and drops south
+    // (Ian, 2026-11-01, on a blueprint this planner exported).
     const e = (dir: "N" | "E" | "S" | "W"): EdEnt => ({ t: "ins", x: 0, y: 0, dir, kind: "fast" });
     const dirs = (["N", "E", "S", "W"] as const).map(
       (d) => blueprintObject([e(d)], BELT_TIERS["15"]!, null, "x").blueprint.entities[0]!.direction,

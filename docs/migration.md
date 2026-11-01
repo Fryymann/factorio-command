@@ -36,7 +36,7 @@ The artifacts are frozen. Don't edit them; port from them.
    write tests that pin down what the artifact does today (for example, 8 assembler-2s of green
    science and its plate inputs). Keep the hand-written recipe tables for now in
    `src/data/legacy.ts`.
-2. **Generate game data.** Implement `scripts/extract-data.ts` against a Factorio 2.0 base-game
+2. **Generate game data.** Implement `scripts/extract-data.ts` against a Factorio 2.1 base-game
    `--dump-data` file. Swap `legacy.ts` for `data/game-data.json`. Any number that changes is
    a bug in either the old tables or the extractor: find out which, and don't just update the
    test.
@@ -50,7 +50,9 @@ The artifacts are frozen. Don't edit them; port from them.
 
 - `blueprintObject` (line 1415) writes every inserter with `direction: 0`. The editor's
   exporter (line 2143) sets a real direction. Whole-chain blueprints may have inserters facing
-  the wrong way. Check this in game.
+  the wrong way. Check this in game. _Checked 2026-11-01 in 2.1.24: direction 0 picks up from
+  the north and drops south, which is what every generated inserter needs, so the generated
+  blueprints are right._
 - The two exporters (`blueprintObject`, `edBlueprintObject`) are near-duplicates. Merge them
   during task 1.
 - Recipes flagged `check: true` (low density structure, piercing rounds, military science) have

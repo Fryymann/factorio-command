@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Production-chain calculator, module planner and blueprint generator for Factorio 2.0.",
+  "description": "Production-chain calculator, module planner and blueprint generator for Factorio 2.1.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
