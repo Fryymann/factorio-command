@@ -2,11 +2,346 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Factorio Chain Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
   </head>
   <body>
-    <div id="app"></div>
+    <div class="wrap">
+      <header class="top">
+        <h1>Factorio Chain Planner</h1>
+        <div class="head-right">
+          <span class="sub">Space Age · Nauvis recipes · v2</span>
+          <nav class="tabs" role="tablist" aria-label="Views">
+            <button type="button" role="tab" id="tab-calc" aria-selected="true">Calculator</button>
+            <button type="button" role="tab" id="tab-plan" aria-selected="false">Modules</button>
+            <button type="button" role="tab" id="tab-bp" aria-selected="false">Blueprint</button>
+          </nav>
+        </div>
+      </header>
+      <div class="view" id="view-calc">
+        <section class="panel controls" aria-label="Plan settings">
+          <div class="field">
+            <label for="item">Final product</label>
+            <select id="item"></select>
+          </div>
+          <div class="field">
+            <span class="lbl">Target</span>
+            <div class="target-row">
+              <input
+                id="amount"
+                type="number"
+                min="0"
+                step="any"
+                value="8"
+                aria-label="Target amount"
+              />
+              <div class="seg" role="group" aria-label="Target mode">
+                <button type="button" id="mode-buildings" aria-pressed="true">Buildings</button>
+                <button type="button" id="mode-rate" aria-pressed="false">Per min</button>
+              </div>
+            </div>
+            <span class="equiv" id="equiv"></span>
+          </div>
+          <div class="field">
+            <label for="asm">Assembler</label>
+            <select id="asm">
+              <option value="0.5">Assembling machine 1 (0.5)</option>
+              <option value="0.75" selected>Assembling machine 2 (0.75)</option>
+              <option value="1.25">Assembling machine 3 (1.25)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="furn">Furnace</label>
+            <select id="furn">
+              <option value="stone">Stone furnace (1)</option>
+              <option value="steel" selected>Steel furnace (2)</option>
+              <option value="electric">Electric furnace (2)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="belt">Belt</label>
+            <select id="belt">
+              <option value="15" selected>Transport belt (15/s)</option>
+              <option value="30">Fast belt (30/s)</option>
+              <option value="45">Express belt (45/s)</option>
+              <option value="60">Turbo belt (60/s)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="unit">Show rates</label>
+            <select id="unit">
+              <option value="60" selected>per minute</option>
+              <option value="1">per second</option>
+            </select>
+          </div>
+        </section>
+
+        <div id="warnings"></div>
+
+        <section class="summary" aria-label="Summary">
+          <div class="stat primary">
+            <div class="k">Output</div>
+            <div class="v" id="s-out">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Buildings to place</div>
+            <div class="v" id="s-bld">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Iron plate in</div>
+            <div class="v" id="s-iron">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Copper plate in</div>
+            <div class="v" id="s-copper">–</div>
+          </div>
+        </section>
+
+        <div class="grid2">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Build list</h2>
+              <button type="button" class="btn primary small" id="to-planner">
+                Send to Modules
+              </button>
+            </div>
+            <div class="tscroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th class="num" id="th-rate">/min</th>
+                    <th>Made in</th>
+                    <th class="num">Buildings</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="build"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Inputs</h2>
+            <div class="tscroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th class="num" id="th-rate2">/min</th>
+                    <th class="num">Belt lanes</th>
+                    <th class="num">Belts</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="inputs"></tbody>
+              </table>
+            </div>
+            <p class="sub" style="margin: 10px 0 0">
+              Ore inputs are for the furnaces in the build list. Mark an item <b>Import</b> to bring
+              it in from your main bus instead of building it here. Click <b>Imported</b> on an
+              input to build it here again.
+            </p>
+          </section>
+        </div>
+
+        <section class="panel">
+          <h2>Full chain</h2>
+          <div class="tree" id="tree"></div>
+        </section>
+
+        <section class="notes">
+          <p>
+            <b>How the math works:</b> buildings = (items needed per second ÷ items per craft) ×
+            craft time ÷ building speed. In Buildings mode the target is that many buildings of the
+            final product running flat out. Counts are rounded up; the small grey number is the
+            exact value.
+          </p>
+          <p>
+            <b>Not modelled yet:</b> modules, beacons, productivity bonuses, oil refining (petroleum
+            gas, heavy oil and water are treated as inputs), foundry, electromagnetic plant, and
+            recipes from other planets.
+          </p>
+          <p>
+            <b>Recipe data</b> is typed in from the 2.0 recipes. Items tagged
+            <span class="tag">check</span> are ones I'm less sure of; compare them against the
+            in-game tooltip.
+          </p>
+        </section>
+      </div>
+
+      <div class="view" id="view-plan" hidden>
+        <div id="pl-warn" class="warns"></div>
+        <section class="panel pl-bar" aria-label="Layout controls">
+          <div class="field">
+            <label for="pl-layout">Layout</label
+            ><select id="pl-layout"></select>
+          </div>
+          <div class="field">
+            <label for="pl-name">Name</label><input id="pl-name" type="text" maxlength="60" />
+          </div>
+          <div class="btns">
+            <button type="button" class="btn" id="pl-new">New</button
+            ><button type="button" class="btn" id="pl-dup">Copy</button
+            ><button type="button" class="btn" id="pl-del">Delete</button>
+          </div>
+          <span class="pl-sep"></span>
+          <div class="field">
+            <label for="pl-add-item">Add block</label
+            ><select id="pl-add-item"></select>
+          </div>
+          <div class="btns">
+            <button type="button" class="btn primary" id="pl-add-machine">+ Machine</button
+            ><button type="button" class="btn" id="pl-add-source">+ Source</button
+            ><button type="button" class="btn" id="pl-add-output">+ Output</button>
+          </div>
+        </section>
+        <div class="pl-main">
+          <div class="pl-canvas" id="pl-canvas" aria-label="Layout canvas">
+            <div class="pl-world" id="pl-world">
+              <svg id="pl-svg" aria-hidden="true"></svg>
+              <div id="pl-nodes"></div>
+            </div>
+            <div class="pl-empty" id="pl-empty" hidden>
+              Empty layout. Pick an item under Add block, or use “Send to Modules” on the Calculator
+              tab.
+            </div>
+            <div class="pl-zoom">
+              <button type="button" id="pl-zout" aria-label="Zoom out">−</button
+              ><span id="pl-zl">100%</span
+              ><button type="button" id="pl-zin" aria-label="Zoom in">+</button
+              ><button type="button" id="pl-fit">Fit</button>
+            </div>
+          </div>
+          <aside class="panel pl-insp" id="pl-insp" aria-label="Selected block"></aside>
+        </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Problems</h2>
+            <div class="pl-totals" id="pl-totals"></div>
+          </div>
+          <ul class="issues" id="pl-issues"></ul>
+        </section>
+      </div>
+
+      <div class="view" id="view-bp" hidden>
+        <section class="panel pl-bar" aria-label="Blueprint settings">
+          <div class="field" style="flex: 2 1 260px">
+            <label for="bp-scope">Show</label
+            ><select id="bp-scope"></select>
+          </div>
+          <div class="field">
+            <label for="bp-belt">Belt</label
+            ><select id="bp-belt">
+              <option value="15">Transport belt (15/s)</option>
+              <option value="30">Fast belt (30/s)</option>
+              <option value="45">Express belt (45/s)</option>
+              <option value="60">Turbo belt (60/s)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bp-ins">Inserter</label
+            ><select id="bp-ins">
+              <option value="basic">Inserter</option>
+              <option value="fast">Fast inserter</option>
+              <option value="bulk">Bulk inserter</option>
+            </select>
+          </div>
+          <div class="field" style="flex: 0 1 120px">
+            <label for="bp-maxrow">Max per row</label
+            ><input id="bp-maxrow" type="number" min="1" max="40" step="1" />
+          </div>
+          <div class="btns">
+            <button type="button" class="btn primary" id="bp-edit" hidden>Edit layout</button
+            ><button type="button" class="btn primary" id="bp-copy">Copy blueprint</button>
+          </div>
+        </section>
+        <div id="bp-warn" class="warns"></div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2 id="bp-title">Belt layout</h2>
+            <div class="pl-totals" id="bp-totals"></div>
+          </div>
+          <div class="ed-bar" id="ed-bar" hidden>
+            <div class="seg" role="group" aria-label="Tool" id="ed-tools">
+              <button type="button" data-tool="select" title="1">Select</button
+              ><button type="button" data-tool="belt" title="2">Belt</button
+              ><button type="button" data-tool="ug" title="3">Underground</button
+              ><button type="button" data-tool="ins" title="4">Inserter</button
+              ><button type="button" data-tool="pole" title="5">Pole</button
+              ><button type="button" data-tool="feed" title="6">Input</button
+              ><button type="button" data-tool="erase" title="7">Erase</button>
+            </div>
+            <select id="ed-ins" aria-label="Inserter type">
+              <option value="basic">Inserter</option>
+              <option value="fast">Fast inserter</option>
+              <option value="bulk">Bulk inserter</option>
+              <option value="long">Long-handed inserter</option>
+            </select>
+            <select id="ed-feed" aria-label="Input item"></select>
+            <button type="button" class="btn" id="ed-rot">Facing →</button>
+            <button type="button" class="btn" id="ed-undo">Undo</button>
+            <span class="sub ed-hint" id="ed-hint"></span>
+          </div>
+          <div class="lay-grid">
+            <div class="viewport" id="vp">
+              <canvas id="cv" aria-label="Factory layout, tile by tile"></canvas>
+              <div class="tip" id="tip" hidden></div>
+              <div class="pl-zoom">
+                <button type="button" id="bp-zout" aria-label="Zoom out">−</button
+                ><span id="bp-zl">100%</span
+                ><button type="button" id="bp-zin" aria-label="Zoom in">+</button
+                ><button type="button" id="bp-fit">Fit</button>
+              </div>
+            </div>
+            <aside class="rowlist" id="rowlist" aria-label="Rows"></aside>
+          </div>
+          <div class="legend" id="legend"></div>
+          <div class="bpbox" id="bpbox" hidden>
+            <label class="lane" for="bptext"
+              >Blueprint string. In Factorio, open the blueprint library and use Import
+              string.</label
+            >
+            <textarea id="bptext" readonly></textarea>
+            <span class="sub" id="bpnote"></span>
+          </div>
+        </section>
+        <section class="notes">
+          <p>
+            <b>Whole chain</b> lays every module out on one main bus: raw inputs and each product
+            get a bus column on the left, and each module becomes one or more rows of machines fed
+            from the bus. Modules making the same item are merged into one column.
+            <b>A single module</b>
+            gets the same treatment on its own, with its ingredients as bus inputs, so you can build
+            and test it by itself.
+          </p>
+          <p>
+            <b>Rows</b> split when an input lane or the output belt would be over capacity, or past
+            the max per row. Each row's input belt carries two ingredients on separate lanes. A
+            second belt with long-handed inserters carries a third and fourth.
+          </p>
+          <p>
+            <b>Editing:</b> pick the whole chain or a single module, then Edit layout to get an
+            editable copy. Machines can be moved but not added or removed; belts, undergrounds,
+            inserters and poles are yours. Belt lanes update as you edit. Splitters from the
+            generated layout are kept and mix their inputs; placing new splitters and side-loading
+            onto undergrounds or splitters aren't modelled yet. Inserters lined up with a belt are
+            assumed to drop on its right lane.
+          </p>
+          <p>
+            <b>Before you build it:</b> fluids are drawn as pipe guides and left out of the
+            blueprint, so place pipes by hand. Burner furnaces get a coal lane for fuel that the
+            Modules tab doesn't count. Inserter speeds are approximate. The tile layout generator
+            comes from your friend's version of this planner.
+          </p>
+        </section>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

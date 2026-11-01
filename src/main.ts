@@ -1,7 +1,22 @@
-// App entry. The UI moves here from artifacts/FCP_v1-2.html during migration (docs/migration.md).
-// Until then, the working planner is artifacts/FCP_v1-2.html: open it directly in a browser.
+// App entry: Calculator, Modules and Blueprint tabs (docs/migration.md, task 3).
+import "./ui/styles.css";
+import { mountBlueprint } from "./ui/blueprint.ts";
+import { mountCalculator } from "./ui/calculator.ts";
+import { mountModules } from "./ui/modules.ts";
+import { mountTabs } from "./ui/tabs.ts";
 
-const app = document.getElementById("app");
-if (app) {
-  app.textContent = "Migration in progress. Open artifacts/FCP_v1-2.html for the working planner.";
-}
+let blueprint: ReturnType<typeof mountBlueprint> | undefined;
+const modules = mountModules((nodeId) => {
+  blueprint?.openModule(nodeId);
+  tabs.show("bp");
+});
+blueprint = mountBlueprint();
+const tabs = mountTabs((t) => {
+  if (t === "plan") modules.show();
+  if (t === "bp") blueprint?.show();
+});
+mountCalculator(() => {
+  modules.sendFromCalc();
+  tabs.show("plan");
+});
+tabs.showFromHash();
