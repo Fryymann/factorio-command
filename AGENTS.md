@@ -4,15 +4,15 @@ Guidance for coding agents (Claude Code, Codex, others) working in this repo. Tw
 share it, each with their own agent, so most of these rules are about not stepping on each
 other and not shipping wrong numbers.
 
-Read `README.md` for what the project is. Read `docs/migration.md` before touching anything
-that is being ported from `artifacts/`.
+Read `README.md` for what the project is. `docs/migration.md` records how the port from
+`artifacts/` was done.
 
 ## The project in one paragraph
 
 A Factorio 2.1 (base game) production planner: a calculator, a module graph with flow
-simulation, and a blueprint generator and editor. The working version is the single file
-`artifacts/FCP_v1-2.html`. It is being ported into Vite + TypeScript under `src/`. The build
-is still a single self-contained `dist/index.html`.
+simulation, and a blueprint generator and editor. It is built with Vite + TypeScript under
+`src/` into a single self-contained `dist/index.html`. The original single-file versions stay
+in `artifacts/` as history.
 
 ## Commands
 
@@ -29,17 +29,17 @@ couldn't run it, say so.
 
 ## Layout and boundaries
 
-| Path             | What lives there                          | Rule                                        |
-| ---------------- | ----------------------------------------- | ------------------------------------------- |
-| `artifacts/`     | Frozen single-file versions               | Read-only. Port from them, never edit them. |
-| `data/*.json`    | Generated game data                       | Never edit by hand. Change the extractor.   |
-| `scripts/`       | Tooling (data extraction)                 | Node 24 runs `.ts` directly; no build step. |
-| `src/data/`      | Types and loaders for game data           | Type changes affect everyone (see below).   |
-| `src/solver/`    | Calculator math                           | Pure functions. No DOM.                     |
-| `src/modules/`   | Module graph and flow simulation          | Pure functions. No DOM.                     |
-| `src/blueprint/` | Tile layout, export, string encoding      | Pure functions. No DOM.                     |
-| `src/editor/`    | Editor logic and belt-lane simulation     | Pure functions. No DOM.                     |
-| `src/ui/`        | Rendering, events, canvas, `localStorage` | The only place that touches the browser.    |
+| Path             | What lives there                          | Rule                                                                                |
+| ---------------- | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| `artifacts/`     | Frozen single-file versions               | Read-only history. Never edit them; `scripts/artifact-goldens.mjs` runs their code. |
+| `data/*.json`    | Generated game data                       | Never edit by hand. Change the extractor.                                           |
+| `scripts/`       | Tooling (data extraction)                 | Node 24 runs `.ts` directly; no build step.                                         |
+| `src/data/`      | Types and loaders for game data           | Type changes affect everyone (see below).                                           |
+| `src/solver/`    | Calculator math                           | Pure functions. No DOM.                                                             |
+| `src/modules/`   | Module graph and flow simulation          | Pure functions. No DOM.                                                             |
+| `src/blueprint/` | Tile layout, export, string encoding      | Pure functions. No DOM.                                                             |
+| `src/editor/`    | Editor logic and belt-lane simulation     | Pure functions. No DOM.                                                             |
+| `src/ui/`        | Rendering, events, canvas, `localStorage` | The only place that touches the browser.                                            |
 
 Tests sit next to the code: `foo.ts` and `foo.test.ts`.
 
