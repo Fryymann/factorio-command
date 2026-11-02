@@ -40,6 +40,12 @@ describe("planLayout matches the artifact", () => {
     });
   }
 
+  // It used to size the layout for fast inserters without a word (#33).
+  it("throws on an unknown inserter type instead of assuming the fast inserter", () => {
+    expect(() => plan("green", { ins: "stack" })).toThrow(/inserter "stack"/);
+    expect(() => plan("green", { ins: "constructor" })).toThrow(/inserter "constructor"/);
+  });
+
   it("green science: the layout has the machines the build list asks for", () => {
     // 8 AM2 for the pack + 5 intermediates, one each (see fromModules.test.ts)
     const LY = plan("green");

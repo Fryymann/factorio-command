@@ -95,6 +95,41 @@ describe("items the game data doesn't have", () => {
   });
 });
 
+describe("the inserter type a layout's blueprint settings name (#33)", () => {
+  const g = goldens.green.artifactGraph;
+  it.each(["basic", "fast", "bulk"])("keeps %s, the artifact's three choices", (ins) => {
+    const L = loaded(artifactStore("green", { bp: { belt: "15", ins } }));
+    expect(L.bp).toEqual({ belt: "transport-belt", ins });
+  });
+
+  it("leaves a missing one missing, so the default still applies", () => {
+    const L = loaded(artifactStore("green", { bp: { belt: "15" } }));
+    expect(L.bp).toEqual({ belt: "transport-belt" });
+    expect(resolveBpSettings(L.bp, "transport-belt").ins).toBe("fast");
+  });
+
+  it("refuses an unknown one, naming the layout and the value, and leaves storage alone", () => {
+    const raw = artifactStore("green", { bp: { ins: "stack" }, name: "My mall" });
+    const kv = memory(raw);
+    const r = loadLayouts(kv);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/Layout "My mall" names an inserter .*"stack"/);
+    expect(!r.ok && r.error).toMatch(/left untouched/);
+    expect(kv.data.get(LAYOUTS_KEY)).toBe(raw);
+  });
+
+  it.each(["", "long", "constructor", "__proto__", 7, null])("refuses %j", (ins) => {
+    const raw = artifactStore("green", { bp: { ins } });
+    expect(loadLayouts(memory(raw)).ok).toBe(false);
+  });
+
+  it("uses the right article for an item", () => {
+    const nodes = g.nodes.map((n) => (n.kind === "source" ? { ...n, item: "unobtainium" } : n));
+    const r = loadLayouts(memory(artifactStore("green", { nodes, name: "Odd" })));
+    expect(!r.ok && r.error).toMatch(/names an item /);
+  });
+});
+
 describe("JavaScript's built-in names in a layout (#30 review)", () => {
   const g = goldens.green.artifactGraph;
   const refused = (extra: Record<string, unknown>) => {
