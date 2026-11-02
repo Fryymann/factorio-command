@@ -84,8 +84,8 @@ FACTORIO=/path/to/factorio-nix npm run dump-data
 ```
 
 `data/game-data.json` is committed, records the game version it came from, and is never edited
-by hand. The app runs on it; only inserter throughput is still hand-written, in
-`src/data/legacy.ts`.
+by hand. The app runs on it. Two sets of numbers are still hand-written: inserter throughput in
+`src/data/legacy.ts`, and the Space Age turbo belt in `src/data/game.ts` (until #11).
 
 ## Working together
 
