@@ -55,7 +55,6 @@ type MachineNode = Extract<PlacedNode, { kind: "machine" }>;
 type SourceNode = Extract<PlacedNode, { kind: "source" }>;
 
 const RECIPE_IDS = PLANNABLE;
-const ALL_IDS = [...PLANNABLE, ...RAW_ITEMS];
 
 function nodeLabel(n: PlacedNode | undefined): string {
   if (!n) return "?";
@@ -320,7 +319,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     if (n?.kind === "machine") {
       const m: MachineNode = n;
       box.innerHTML = `<h3>${sw(m.item)}Machine block</h3>
-      <div class="field"><label for="pf-item">Makes</label><select id="pf-item">${itemOptions(RECIPE_IDS, m.item)}</select></div>
+      <div class="field"><label for="pf-item">Makes</label><select id="pf-item">${groupedOptions(RECIPE_IDS, m.item)}</select></div>
       <div class="field"><label for="pf-count">Buildings</label><input id="pf-count" type="number" min="0" step="1" value="${m.count}"></div>
       ${
         recipesFor(m.item).length > 1
@@ -371,7 +370,7 @@ export function mountModules(onModuleBlueprint: (nodeId: string) => void): Modul
     } else if (n?.kind === "source") {
       const s: SourceNode = n;
       box.innerHTML = `<h3>${sw(s.item)}Source block</h3>
-      <div class="field"><label for="pf-item">Item</label><select id="pf-item">${itemOptions(ALL_IDS, s.item)}</select></div>
+      <div class="field"><label for="pf-item">Item</label><select id="pf-item">${groupedOptions(PLANNABLE, s.item)}<optgroup label="Raw inputs">${itemOptions(RAW_ITEMS, s.item)}</optgroup></select></div>
       <div class="field"><label for="pf-rate">Supplies (${unitLbl()})</label><input id="pf-rate" type="number" min="0" step="any" value="${+(Number(s.rate) * Number(state.unit)).toFixed(3)}"></div>
       <div class="stats" id="pl-stats"></div>
       <div class="btns"><button type="button" class="btn" data-act="delete">Delete block</button></div>`;

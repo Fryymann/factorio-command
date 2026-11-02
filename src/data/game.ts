@@ -93,7 +93,7 @@ for (let changed = true; changed;) {
     if (ok.length === 0) continue;
     const blocked = ok.map((r) => Object.keys(r.ingredients).find((i) => UNSUPPORTED.has(i)));
     if (blocked.every((b) => b !== undefined)) {
-      UNSUPPORTED.set(id, UNSUPPORTED.get(blocked[0]!)!);
+      UNSUPPORTED.set(id, `Needs ${GAME.items[blocked[0]!]!.name}, which isn't planned yet.`);
       changed = true;
     }
   }

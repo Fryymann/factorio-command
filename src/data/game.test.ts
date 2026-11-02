@@ -87,6 +87,10 @@ describe("plannedRecipe", () => {
       expect(PLANNABLE).not.toContain(id);
     }
     expect(unsupported("rocket-part")).toMatch(/launch/i);
+    // An item blocked by another says which one, rather than repeating that item's reason.
+    expect(unsupported("spidertron")).toBe(
+      "Needs Portable fission reactor, which isn't planned yet.", // the game's name for fission-reactor-equipment
+    );
     expect(unsupported("iron-gear-wheel")).toBeUndefined();
     expect(unsupported("iron-ore")).toBeUndefined();
   });
