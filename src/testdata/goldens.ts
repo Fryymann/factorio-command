@@ -1,4 +1,5 @@
-// Reference values produced by the artifact itself (scripts/artifact-goldens.mjs).
+// Reference values produced by the artifact itself, given the game's ingredient order
+// (scripts/artifact-goldens.mjs).
 import { createHash } from "node:crypto";
 import data from "./artifact-goldens.json" with { type: "json" };
 import { migrateLayouts } from "../modules/migrate.ts";
