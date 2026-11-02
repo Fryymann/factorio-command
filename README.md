@@ -14,12 +14,17 @@ It targets **Factorio 2.1, base game**. The data model is meant to grow to Space
 
 ## Status
 
-The planner works, but right now it lives in a single HTML file:
-[`artifacts/FCP_v1-2.html`](artifacts/FCP_v1-2.html). Open it in a browser to use it.
+To use the planner, build it and open `dist/index.html` in a browser. It is one self-contained
+file, so you can copy it anywhere:
 
-We are moving it into a Vite + TypeScript project so two people (and their agents) can work
-on it without colliding. Progress and the line-by-line source map are in
-[`docs/migration.md`](docs/migration.md).
+```sh
+npm install
+npm run build
+```
+
+It started as a single HTML file, kept in [`artifacts/`](artifacts/) as frozen history. The port
+to Vite + TypeScript is finished; [`docs/migration.md`](docs/migration.md) records how it was
+done.
 
 ## Getting started
 
@@ -36,7 +41,7 @@ npm run build    # builds dist/index.html, one self-contained file
 ## Layout
 
 ```
-artifacts/   frozen single-file versions (reference only, do not edit)
+artifacts/   frozen single-file versions (history; scripts/artifact-goldens.mjs runs their code)
 data/        generated game data (JSON, committed); data/raw/ holds the dump and is gitignored
 docs/        design notes and the migration plan
 scripts/     tooling, e.g. extract-data.ts (game dump → data/)
@@ -78,9 +83,9 @@ exec steam-run ~/.local/share/Steam/steamapps/common/Factorio/bin/x64_/factorio 
 FACTORIO=/path/to/factorio-nix npm run dump-data
 ```
 
-`data/game-data.json` is
-committed, records the game version it came from, and is never edited by hand. The app still
-runs on the hand-typed tables in `src/data/legacy.ts` until they're switched over.
+`data/game-data.json` is committed, records the game version it came from, and is never edited
+by hand. The app runs on it; only inserter throughput is still hand-written, in
+`src/data/legacy.ts`.
 
 ## Working together
 

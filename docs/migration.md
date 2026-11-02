@@ -1,10 +1,14 @@
 # Migration: single-file artifact → Vite + TypeScript
 
-The working planner is `artifacts/FCP_v1-2.html`: one 2,173-line HTML file with CSS, markup
+**Done.** The planner is now `npm run build` (`dist/index.html`). This document is the record
+of how it was ported.
+
+The planner used to be `artifacts/FCP_v1-2.html`: one 2,173-line HTML file with CSS, markup
 and script inline. This document maps it onto the module layout in `AGENTS.md` and lists the
 migration tasks in order. Line numbers refer to `FCP_v1-2.html` at commit `42f84e0`.
 
-The artifacts are frozen. Don't edit them; port from them.
+The artifacts stay as frozen history. Don't edit them: `scripts/artifact-goldens.mjs` runs their
+code to produce the values the tests compare against.
 
 ## Source map
 
@@ -44,7 +48,15 @@ The artifacts are frozen. Don't edit them; port from them.
    after each tab lands.
 4. **Saved-data compatibility.** People have layouts in `localStorage` under `fcp-state` and
    `fcp-layouts`. Read the old shape, or migrate it. Never silently drop it.
-5. **Retire the artifact** once `npm run build` does everything `FCP_v1-2.html` does.
+5. **Retire the artifact** once `npm run build` does everything `FCP_v1-2.html` does. _Done
+   2026-11-01 (#9): both were driven side by side in headless Chromium. All 35 artifact items,
+   at three machine/belt/unit settings each, gave the same Calculator numbers, the same Modules
+   totals and issues, and the same blueprints for every scope (209 of 217 identical apart from
+   the 2.1 version and game item names). The other 8, and the Calculator rows for piercing
+   rounds and military science, differ only because the build uses the 2.0.46 piercing rounds
+   recipe (see "Noticed while mapping"). The editor entered, erased, undid and discarded the
+   same way on 16 module layouts, and state saved by the artifact loaded in the build with the
+   same numbers. The README now points at the build._
 
 ## Noticed while mapping (not fixed, needs checking)
 
