@@ -87,6 +87,10 @@ describe("plannedRecipe", () => {
       expect(PLANNABLE).not.toContain(id);
     }
     expect(unsupported("rocket-part")).toMatch(/launch/i);
+    // Only uranium processing and Kovarex roll their products; nuclear fuel is a centrifuge recipe
+    // with one fixed product, so it gets the "needs" reason (Kaleb's agent's review of #36).
+    expect(unsupported("uranium-235")).toMatch(/two products at once by chance/);
+    expect(unsupported("nuclear-fuel")).toBe("Needs Uranium-235, which isn't planned yet.");
     // An item blocked by another says which one, rather than repeating that item's reason.
     expect(unsupported("spidertron")).toBe(
       "Needs Portable fission reactor, which isn't planned yet.", // the game's name for fission-reactor-equipment
