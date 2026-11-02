@@ -60,7 +60,7 @@ run("--dump-prototype-locale");
 const out = join(work, "script-output");
 const files = [
   "data-raw-dump.json",
-  ...["item", "fluid", "entity", "recipe"].map((k) => `${k}-locale.json`),
+  ...["item", "fluid", "entity", "recipe", "item-group"].map((k) => `${k}-locale.json`),
 ];
 for (const f of files) copyFileSync(join(out, f), join(raw, f));
 writeFileSync(join(raw, "mods.json"), JSON.stringify(loaded, null, 2) + "\n");

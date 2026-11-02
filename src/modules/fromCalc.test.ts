@@ -128,3 +128,20 @@ describe("graph edits", () => {
     expect(canConnect(L, "n3", "missing")).toBe(false);
   });
 });
+
+describe("layoutFromCalc: recipe choices (#26)", () => {
+  it("gives a block the plan's recipe when the item has several", () => {
+    const s: PlanSettings = {
+      item: "solid-fuel",
+      amount: 1,
+      mode: "buildings",
+      asm: "assembling-machine-2",
+      furn: "steel-furnace",
+      imports: [],
+      recipes: { "solid-fuel": "solid-fuel-from-heavy-oil" },
+    };
+    const L = layoutFromCalc({ plan: solve(s), ...s, belt: "transport-belt" }, "T", counter());
+    const block = L.nodes.find((n) => n.kind === "machine" && n.item === "solid-fuel");
+    expect(block).toMatchObject({ recipe: "solid-fuel-from-heavy-oil", mach: "chemical-plant" });
+  });
+});

@@ -113,6 +113,22 @@ describe("JavaScript's built-in names in a layout (#30 review)", () => {
   });
 });
 
+describe("a block's recipe (#26)", () => {
+  const g = goldens.green.artifactGraph;
+  const withRecipe = (recipe: string) =>
+    g.nodes.map((n, i) => (n.kind === "machine" && i === 2 ? { ...n, recipe } : n));
+  it("is kept when the planner uses it for that block's item", () => {
+    const item = g.nodes[2]!.kind === "machine" ? g.nodes[2]!.item : "";
+    const L = loaded(artifactStore("green", { nodes: withRecipe(item) }));
+    expect(L.nodes[2]).toMatchObject({ recipe: item });
+  });
+  it("refuses the load when it isn't, naming it", () => {
+    const r = loadLayouts(memory(artifactStore("green", { nodes: withRecipe("rocket-fuel") })));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/"rocket-fuel"/);
+  });
+});
+
 describe("version 2 layouts", () => {
   it("are saved with a version and load back without being changed", () => {
     const first = loadLayouts(memory(artifactStore("green")));

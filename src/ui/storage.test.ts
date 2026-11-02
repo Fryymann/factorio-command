@@ -23,6 +23,7 @@ describe("parseState (fcp-state)", () => {
     expect(r.state).toEqual({
       ...saved,
       version: 2,
+      recipes: {},
       asm: "assembling-machine-3",
       furn: "stone-furnace",
       belt: "express-transport-belt",
@@ -100,6 +101,36 @@ describe("parseState (fcp-state)", () => {
     expect(r.error).toMatch(/assembler "constructor"/);
     expect(r.error).toMatch(/furnace "toString"/);
     expect(r.error).toMatch(/belt "valueOf"/);
+  });
+
+  it("keeps the plan's recipe choices, and starts with none", () => {
+    expect(DEFAULT_STATE.recipes).toEqual({});
+    const saved = { ...DEFAULT_STATE, recipes: { "solid-fuel": "solid-fuel-from-petroleum-gas" } };
+    const r = parseState(JSON.stringify(saved));
+    expect(r.error).toBeUndefined();
+    expect(r.state.recipes).toEqual({ "solid-fuel": "solid-fuel-from-petroleum-gas" });
+  });
+
+  it("warns about a recipe choice the planner doesn't use, and drops just that one", () => {
+    const r = parseState(
+      JSON.stringify({
+        recipes: {
+          "solid-fuel": "rocket-fuel",
+          "iron-gear-wheel": "iron-gear-wheel",
+          toString: "x",
+        },
+      }),
+    );
+    expect(r.state.recipes).toEqual({ "iron-gear-wheel": "iron-gear-wheel" });
+    expect(r.error).toMatch(/recipe "rocket-fuel" for solid-fuel/);
+    expect(r.error).toMatch(/recipe "x" for toString/);
+  });
+
+  it("loads a save from before recipe choices unchanged (no version bump)", () => {
+    const { recipes: _, ...old } = DEFAULT_STATE;
+    const r = parseState(JSON.stringify({ ...old, belt: "fast-transport-belt" }));
+    expect(r.error).toBeUndefined();
+    expect(r.state).toEqual({ ...DEFAULT_STATE, belt: "fast-transport-belt" });
   });
 
   it("doesn't guess at a save from a newer version", () => {

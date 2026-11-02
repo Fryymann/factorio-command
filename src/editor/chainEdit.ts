@@ -3,7 +3,8 @@
 // A chain edit is never regenerated quietly; the only ways out are editing on or discarding.
 import type { BpSettings, Solution } from "../blueprint/fromModules.ts";
 import type { Layout } from "../blueprint/layout.ts";
-import { BELTS, machine, itemName, own } from "../data/game.ts";
+import { BELTS, GAME, itemName, machine, own, plannedRecipe } from "../data/game.ts";
+import type { MachineNode } from "../modules/types.ts";
 import { INSERTERS } from "../data/legacy.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import type { EdEnt } from "./types.ts";
@@ -13,7 +14,9 @@ export interface ChainBasis {
   belt: string;
   ins: string;
   maxRow: number;
-  machines: Record<string, { count: number; mach: string }>; // mach: machine entity name
+  /** mach: machine entity name. recipe: the recipe run; absent in bases saved before #26, which
+   * means the item's default recipe. */
+  machines: Record<string, { count: number; mach: string; recipe?: string }>;
 }
 
 export interface ChainEdit {
@@ -23,7 +26,7 @@ export interface ChainEdit {
 
 export function makeBasis(sol: Pick<Solution, "build">, bp: BpSettings): ChainBasis {
   const machines: ChainBasis["machines"] = {};
-  for (const b of sol.build) machines[b.id] = { count: b.count, mach: b.mach };
+  for (const b of sol.build) machines[b.id] = { count: b.count, mach: b.mach, recipe: b.recipe };
   return { belt: bp.belt, ins: bp.ins, maxRow: bp.maxRow, machines };
 }
 
@@ -36,7 +39,8 @@ export function startChainEdit(
   return { ents: edFromLayout(LY, bp).ents, basis: makeBasis(sol, bp) };
 }
 
-export type StaleKind = "count" | "added" | "removed" | "machine" | "belt" | "inserter" | "maxRow";
+export type StaleKind =
+  "count" | "added" | "removed" | "machine" | "recipe" | "belt" | "inserter" | "maxRow";
 
 export interface StaleWarning {
   kind: StaleKind;
@@ -84,6 +88,14 @@ export function staleWarnings(
           item: id,
           text: `${nm} is now made in ${machine(is.mach).name} instead of ${machine(was.mach).name}.`,
         });
+      const wasRecipe = was.recipe ?? plannedRecipe(id)?.id;
+      const isRecipe = is.recipe ?? plannedRecipe(id)?.id;
+      if (wasRecipe !== isRecipe)
+        out.push({
+          kind: "recipe",
+          item: id,
+          text: `${nm} is now made with ${recipeName(isRecipe)} instead of ${recipeName(wasRecipe)}.`,
+        });
     }
   }
   if (basis.belt !== bp.belt)
@@ -101,5 +113,36 @@ export function staleWarnings(
       kind: "maxRow",
       text: `Maximum row length changed from ${basis.maxRow} to ${bp.maxRow}.`,
     });
+  return out;
+}
+
+const recipeName = (id: string | undefined) => (id && own(GAME.recipes, id)?.name) || String(id);
+
+/**
+ * Why a saved per-module edit no longer matches its Modules block: a different building count, a
+ * different item, or machines set to a recipe the block doesn't use. Empty means it still matches.
+ */
+export function moduleEditWarnings(n: MachineNode, ents: EdEnt[]): string[] {
+  const out: string[] = [];
+  const have = ents.filter((e): e is EdEnt & { t: "machine" } => e.t === "machine");
+  const want = Math.ceil(Number(n.count) || 0);
+  if (have.length !== want)
+    out.push(
+      `This module now has ${want} buildings but the edited layout has ${have.length}. Discard edits to start from a fresh layout, or set the count back on the Modules tab.`,
+    );
+  const first = have[0];
+  if (first && have.some((e) => e.item !== n.item)) {
+    out.push(
+      `This module now makes ${itemName(n.item)}, but the edited layout was made for ${itemName(first.item)}. Discard edits to start over.`,
+    );
+    return out;
+  }
+  const recipe = plannedRecipe(n.item, n.recipe)?.id;
+  // Furnaces pick their recipe in game, so their machines carry none.
+  const stale = have.find((e) => e.recipe !== null && e.recipe !== recipe);
+  if (stale)
+    out.push(
+      `This module now uses ${recipeName(recipe)}, but the edited layout's machines are set to ${recipeName(stale.recipe ?? undefined)}. Discard edits to start over.`,
+    );
   return out;
 }

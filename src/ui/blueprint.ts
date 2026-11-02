@@ -8,14 +8,14 @@ import { blueprintObject } from "../blueprint/export.ts";
 import { encodeBlueprint } from "../blueprint/encode.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import type { Layout, LayoutEnt } from "../blueprint/layout.ts";
-import { belt, isFluid, itemName } from "../data/game.ts";
-import { INS_KINDS, ITEM_CLASS } from "../data/legacy.ts";
+import { ITEMS_IN_ORDER, belt, isFluid, itemName, unsupported } from "../data/game.ts";
+import { INS_KINDS } from "../data/legacy.ts";
 import { fmt } from "../data/format.ts";
 import * as actions from "../editor/actions.ts";
 import type { EditSession, Tool } from "../editor/actions.ts";
 import { annotate, groupChecks } from "../editor/annotations.ts";
 import type { Annotations } from "../editor/annotations.ts";
-import { staleWarnings, startChainEdit } from "../editor/chainEdit.ts";
+import { moduleEditWarnings, staleWarnings, startChainEdit } from "../editor/chainEdit.ts";
 import { edFromLayout } from "../editor/fromLayout.ts";
 import { DV, ROT_CCW, ROT_CW, foot, tkey } from "../editor/geometry.ts";
 import { canMoveGroup, deleteGroup, selectInBox } from "../editor/selection.ts";
@@ -186,19 +186,7 @@ export function mountBlueprint(): BlueprintTab {
         staleButtons = stale.length > 0;
       } else {
         const n = L.nodes.find((x) => x.id === editKey);
-        const have = doc.ents.filter((e): e is EdEnt & { t: "machine" } => e.t === "machine");
-        if (n?.kind === "machine") {
-          const want = Math.ceil(Number(n.count) || 0);
-          if (have.length !== want)
-            w.push(
-              `This module now has ${want} buildings but the edited layout has ${have.length}. Discard edits to start from a fresh layout, or set the count back on the Modules tab.`,
-            );
-          const first = have[0];
-          if (first && have.some((e) => e.item !== n.item))
-            w.push(
-              `This module now makes ${itemName(n.item)}, but the edited layout was made for ${itemName(first.item)}. Discard edits to start over.`,
-            );
-        }
+        if (n?.kind === "machine") w.push(...moduleEditWarnings(n, doc.ents));
       }
       warnings = w;
       renderWarnings();
@@ -833,8 +821,7 @@ export function mountBlueprint(): BlueprintTab {
     ED.feed = (ev.target as HTMLSelectElement).value;
     bpDraw();
   });
-  el("ed-feed").innerHTML = Object.keys(ITEM_CLASS)
-    .filter((id) => !isFluid(id))
+  el("ed-feed").innerHTML = ITEMS_IN_ORDER.filter((id) => !isFluid(id) && !unsupported(id))
     .map((id) => `<option value="${id}">${esc(itemName(id))}</option>`)
     .join("");
   el("ed-rot").addEventListener("click", () => rotateSel(false));

@@ -141,6 +141,30 @@ describe("solve: modes, imports, machines", () => {
     expect(plan.build.find((b) => b.id === "piercing-rounds-magazine")!.exact).toBeCloseTo(0.3, 9);
   });
 
+  it("uses the plan's recipe choice: solid fuel from light oil by default, or as chosen", () => {
+    // Factorio 2.1.24, chemical plant (speed 1), 1 s per craft, 1 solid fuel per craft:
+    // from light oil 10 per craft, from heavy oil 20, from petroleum gas 20.
+    const fuel = { ...base, item: "solid-fuel", mode: "rate" as const, amount: 1 };
+    const light = solve(fuel);
+    expect(light.inputs.get("light-oil")?.rate).toBeCloseTo(10, 9);
+    expect(light.build[0]?.machine.id).toBe("chemical-plant");
+    expect(light.build[0]?.exact).toBeCloseTo(1, 9);
+    const heavy = solve({ ...fuel, recipes: { "solid-fuel": "solid-fuel-from-heavy-oil" } });
+    expect(heavy.inputs.get("heavy-oil")?.rate).toBeCloseTo(20, 9);
+    expect(heavy.inputs.has("light-oil")).toBe(false);
+    expect(() => solve({ ...fuel, recipes: { "solid-fuel": "rocket-fuel" } })).toThrow(
+      /rocket-fuel/,
+    );
+  });
+
+  it("plans items the artifact couldn't: 1 assembling machine 3 of rocket silos", () => {
+    // Rocket silo, Factorio 2.1.24: 30 s; 1000 concrete, 200 electric engines, 100 pipes,
+    // 200 processing units, 1000 steel -> 1. AM3 at speed 1.25: 1/24 silos/s.
+    const plan = solve({ ...base, item: "rocket-silo", amount: 1, asm: "assembling-machine-3" });
+    expect(plan.tree.rate).toBeCloseTo(1.25 / 30, 12);
+    expect(plan.build.find((b) => b.id === "concrete")!.rate).toBeCloseTo((1000 * 1.25) / 30, 9);
+  });
+
   it("throws on unknown input instead of guessing", () => {
     expect(() => solve({ ...base, item: "nope" })).toThrow(/nope/);
     expect(() => solve({ ...base, asm: "9" as never })).toThrow(/assembler/);

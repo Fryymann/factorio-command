@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { bpSolution, resolveBpSettings } from "../blueprint/fromModules.ts";
 import type { BpSettings } from "../blueprint/fromModules.ts";
+import type { EdEnt } from "./types.ts";
 import { planLayout } from "../blueprint/layout.ts";
 import { goldens } from "../testdata/goldens.ts";
 import type { ModuleGraph } from "../modules/types.ts";
-import { startChainEdit, staleWarnings } from "./chainEdit.ts";
+import { makeBasis, moduleEditWarnings, startChainEdit, staleWarnings } from "./chainEdit.ts";
 import { belt } from "../data/game.ts";
 import { edFromLayout } from "./fromLayout.ts";
 import { laneSim } from "./laneSim.ts";
@@ -30,12 +31,20 @@ describe("startChainEdit", () => {
       ins: "fast",
       maxRow: 12,
       machines: {
-        "logistic-science-pack": { count: 8, mach: "assembling-machine-2" },
-        inserter: { count: 1, mach: "assembling-machine-2" },
-        "transport-belt": { count: 1, mach: "assembling-machine-2" },
-        "iron-gear-wheel": { count: 1, mach: "assembling-machine-2" },
-        "electronic-circuit": { count: 1, mach: "assembling-machine-2" },
-        "copper-cable": { count: 1, mach: "assembling-machine-2" },
+        "logistic-science-pack": {
+          count: 8,
+          mach: "assembling-machine-2",
+          recipe: "logistic-science-pack",
+        },
+        inserter: { count: 1, mach: "assembling-machine-2", recipe: "inserter" },
+        "transport-belt": { count: 1, mach: "assembling-machine-2", recipe: "transport-belt" },
+        "iron-gear-wheel": { count: 1, mach: "assembling-machine-2", recipe: "iron-gear-wheel" },
+        "electronic-circuit": {
+          count: 1,
+          mach: "assembling-machine-2",
+          recipe: "electronic-circuit",
+        },
+        "copper-cable": { count: 1, mach: "assembling-machine-2", recipe: "copper-cable" },
       },
     });
   });
@@ -140,5 +149,103 @@ describe("chain edit of a multi-row chain", () => {
     const sim = laneSim(edit.ents, belt(bp.belt).U);
     expect(sim.checks).toEqual([]);
     expect(sim.mixedSet.size).toBe(0);
+  });
+});
+
+// #26 review: solid fuel's three recipes all take 1 s in a chemical plant, so switching recipe
+// changes neither the count nor the machine. An edit made before the switch must still be flagged,
+// or the exported blueprint would set the plants to the old recipe.
+const fuelEntry = (recipe: string) => ({
+  id: "solid-fuel",
+  recipe,
+  rate: 1,
+  depth: 0,
+  exact: 1,
+  count: 1,
+  machine: { name: "Chemical plant", speed: 1, ent: "chemical-plant", size: 3, burner: false },
+  mach: "chemical-plant",
+});
+const fuelBp: BpSettings = { scope: "all", belt: "transport-belt", ins: "fast", maxRow: 12 };
+
+describe("staleWarnings: recipe changes (#26)", () => {
+  it("flags a changed recipe, naming both", () => {
+    const basis = makeBasis({ build: [fuelEntry("solid-fuel-from-light-oil")] }, fuelBp);
+    const w = staleWarnings(basis, { build: [fuelEntry("solid-fuel-from-heavy-oil")] }, fuelBp);
+    expect(w).toEqual([
+      {
+        kind: "recipe",
+        item: "solid-fuel",
+        text: "Solid fuel is now made with Solid fuel from heavy oil instead of Solid fuel from light oil.",
+      },
+    ]);
+  });
+
+  it("reads a basis saved before recipes were recorded as the default recipe", () => {
+    const basis = makeBasis({ build: [fuelEntry("solid-fuel-from-light-oil")] }, fuelBp);
+    delete basis.machines["solid-fuel"]!.recipe;
+    expect(
+      staleWarnings(basis, { build: [fuelEntry("solid-fuel-from-light-oil")] }, fuelBp),
+    ).toEqual([]);
+    expect(
+      staleWarnings(basis, { build: [fuelEntry("solid-fuel-from-heavy-oil")] }, fuelBp).map(
+        (x) => x.kind,
+      ),
+    ).toEqual(["recipe"]);
+  });
+});
+
+describe("moduleEditWarnings (#26)", () => {
+  const plant = (recipe: string | null): EdEnt & { t: "machine" } => ({
+    t: "machine",
+    x: 0,
+    y: 0,
+    w: 3,
+    h: 3,
+    item: "solid-fuel",
+    ent: "chemical-plant",
+    mname: "Chemical plant",
+    recipe,
+  });
+  const block = (recipe?: string) => ({
+    id: "m",
+    kind: "machine" as const,
+    item: "solid-fuel",
+    count: 1,
+    mach: "chemical-plant",
+    ...(recipe ? { recipe } : {}),
+  });
+
+  it("is quiet when the edit matches the block", () => {
+    expect(moduleEditWarnings(block(), [plant("solid-fuel-from-light-oil")])).toEqual([]);
+  });
+
+  it("flags machines set to a recipe the block no longer uses", () => {
+    expect(
+      moduleEditWarnings(block("solid-fuel-from-heavy-oil"), [plant("solid-fuel-from-light-oil")]),
+    ).toEqual([
+      "This module now uses Solid fuel from heavy oil, but the edited layout's machines are set to Solid fuel from light oil. Discard edits to start over.",
+    ]);
+  });
+
+  it("keeps the count and item checks it had", () => {
+    expect(
+      moduleEditWarnings({ ...block(), count: 2 }, [plant("solid-fuel-from-light-oil")]),
+    ).toEqual([
+      "This module now has 2 buildings but the edited layout has 1. Discard edits to start from a fresh layout, or set the count back on the Modules tab.",
+    ]);
+  });
+
+  it("ignores furnaces, which pick their own recipe", () => {
+    const furnace: EdEnt = {
+      ...plant(null),
+      item: "iron-plate",
+      ent: "stone-furnace",
+      mname: "Stone furnace",
+      w: 2,
+      h: 2,
+    };
+    expect(
+      moduleEditWarnings({ ...block(), item: "iron-plate", mach: "stone-furnace" }, [furnace]),
+    ).toEqual([]);
   });
 });

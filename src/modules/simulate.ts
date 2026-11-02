@@ -92,7 +92,7 @@ export function simulate(L: ModuleGraph): Simulation {
       missing: [],
     };
     if (n.kind === "machine") {
-      const rec = plannedRecipe(n.item);
+      const rec = plannedRecipe(n.item, n.recipe);
       if (!rec) throw new Error(`simulate: unknown recipe ${n.item}`);
       if (!own(GAME.machines, n.mach)) throw new Error(`simulate: unknown machine ${n.mach}`);
       const cps = (Math.max(0, Number(n.count) || 0) * machine(n.mach).speed) / rec.time;

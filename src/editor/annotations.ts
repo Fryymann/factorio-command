@@ -73,7 +73,8 @@ export function annotate(ents: EdEnt[], sim: LaneSimResult): Annotations {
   const consumed = new Set<string>();
   for (const e of ents)
     if (e.t === "machine")
-      for (const i of Object.keys(plannedRecipe(e.item)?.ingredients ?? {})) consumed.add(i);
+      for (const i of Object.keys(plannedRecipe(e.item, e.recipe ?? undefined)?.ingredients ?? {}))
+        consumed.add(i);
   const out: Annotations = { feeds: [], products: [], outputs: [], rows: [] };
   for (const e of ents) {
     if (e.t === "belt" && e.feed) out.feeds.push({ x: e.x, y: e.y, item: e.feed });

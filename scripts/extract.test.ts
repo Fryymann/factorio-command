@@ -10,6 +10,43 @@ import {
 // Excerpts from Factorio 2.1.24's base-game data dump (factorio --dump-data), trimmed to the
 // fields the extractor reads. Values are copied unchanged.
 function sampleDump(): RawDump {
+  const dump = baseDump();
+  // Crafting-menu placement, as in the 2.1.24 dump: item-group -> item-subgroup -> item.
+  dump["item-group"] = {
+    "intermediate-products": { name: "intermediate-products", order: "c" },
+    combat: { name: "combat", order: "e" },
+    fluids: { name: "fluids", order: "f" },
+  };
+  dump["item-subgroup"] = {
+    "raw-resource": { name: "raw-resource", group: "intermediate-products", order: "b" },
+    "raw-material": { name: "raw-material", group: "intermediate-products", order: "c" },
+    "intermediate-product": {
+      name: "intermediate-product",
+      group: "intermediate-products",
+      order: "g",
+    },
+    ammo: { name: "ammo", group: "combat", order: "b" },
+    gun: { name: "gun", group: "combat", order: "a" },
+    fluid: { name: "fluid", group: "fluids", order: "a" },
+  };
+  const place = (protos: Record<string, Record<string, unknown>> | undefined, subgroup: string) => {
+    for (const p of Object.values(protos ?? {})) {
+      p.subgroup ??= subgroup;
+      p.order ??= `z[${String(p.name)}]`;
+    }
+  };
+  dump.item!["copper-plate"]!.subgroup = "raw-material";
+  dump.item!["copper-plate"]!.order = "a[smelting]-b[copper-plate]";
+  dump.fluid!.water!.subgroup = "fluid";
+  dump.fluid!.water!.order = "a[fluid]-a[water]-a[water]";
+  place(dump.item, "intermediate-product");
+  place(dump.ammo, "ammo");
+  place(dump.gun, "gun");
+  place(dump.fluid, "fluid");
+  return dump;
+}
+
+function baseDump(): RawDump {
   return {
     recipe: {
       // No energy_required and no categories: the game's defaults (0.5 s, "crafting") apply.
@@ -207,6 +244,11 @@ function sampleInput(dump = sampleDump()): ExtractInput {
         "fast-transport-belt",
       ]),
       recipe: names(Object.keys(dump.recipe ?? {})),
+      itemGroup: {
+        "intermediate-products": "Intermediate products",
+        combat: "Combat",
+        fluids: "Fluids",
+      },
     },
     factorioVersion: "2.1.24",
     mods: ["base"],
@@ -310,6 +352,9 @@ describe("extract: items, machines and belts", () => {
       id: "petroleum-gas",
       name: "Name of petroleum-gas",
       fluid: true,
+      group: "fluids",
+      subgroup: "fluid",
+      order: "z[petroleum-gas]",
     });
   });
 
@@ -362,6 +407,47 @@ describe("extract: items, machines and belts", () => {
   it("passes the version and mod list through", () => {
     expect(data.factorioVersion).toBe("2.1.24");
     expect(data.mods).toEqual(["base"]);
+  });
+});
+
+describe("extract: crafting-menu groups", () => {
+  const { data } = extract(sampleInput());
+
+  it("places each item in the game's group and subgroup, with its order", () => {
+    expect(data.items["copper-plate"]).toMatchObject({
+      group: "intermediate-products",
+      subgroup: "raw-material",
+      order: "a[smelting]-b[copper-plate]",
+    });
+    expect(data.items.water).toMatchObject({
+      group: "fluids",
+      subgroup: "fluid",
+      order: "a[fluid]-a[water]-a[water]",
+    });
+  });
+
+  it("names the groups and keeps the order of groups and subgroups", () => {
+    expect(data.groups["intermediate-products"]).toEqual({
+      id: "intermediate-products",
+      name: "Intermediate products",
+      order: "c",
+    });
+    expect(data.subgroups["raw-material"]).toEqual({
+      id: "raw-material",
+      group: "intermediate-products",
+      order: "c",
+    });
+  });
+
+  it("lists only groups and subgroups that kept items use", () => {
+    expect(Object.keys(data.groups).sort()).toEqual(["combat", "fluids", "intermediate-products"]);
+    expect(data.subgroups.gun).toBeUndefined(); // only the hidden pistol used it
+  });
+
+  it("throws when an item has no subgroup", () => {
+    const dump = sampleDump();
+    delete dump.item!.coal!.subgroup;
+    expect(() => extract(sampleInput(dump))).toThrow(/coal.*subgroup/);
   });
 });
 

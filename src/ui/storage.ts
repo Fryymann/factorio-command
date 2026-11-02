@@ -1,6 +1,6 @@
 // Calculator state in localStorage (`fcp-state`). The only place the calculator touches the
 // browser's storage. Ported from artifacts/FCP_v1-2.html, lines 496-498.
-import { plannedRecipe } from "../data/game.ts";
+import { plannedRecipe, recipesFor } from "../data/game.ts";
 import { migrateAsm, migrateBelt, migrateFurn } from "../data/savedKeys.ts";
 import type { PlanSettings, TargetMode } from "../solver/solve.ts";
 
@@ -18,6 +18,8 @@ export interface CalcState extends Omit<PlanSettings, "amount"> {
   version: 2;
   amount: number | string;
   belt: string; // belt entity name
+  /** Recipe chosen for an item that has several; items not listed use their default. */
+  recipes: Record<string, string>;
   unit: "60" | "1";
 }
 
@@ -31,6 +33,7 @@ export const DEFAULT_STATE: CalcState = {
   belt: "transport-belt",
   unit: "60",
   imports: [],
+  recipes: {},
 };
 
 const MODES: TargetMode[] = ["buildings", "rate"];
@@ -41,7 +44,7 @@ const MODES: TargetMode[] = ["buildings", "rate"];
  * mapped to entity names. Other fields that don't fit fall back silently, as before.
  */
 export function parseState(raw: string | null): { state: CalcState; error?: string } {
-  const state: CalcState = { ...DEFAULT_STATE, imports: [] };
+  const state: CalcState = { ...DEFAULT_STATE, imports: [], recipes: {} };
   if (raw === null) return { state };
   let d: unknown;
   try {
@@ -82,6 +85,12 @@ export function parseState(raw: string | null): { state: CalcState; error?: stri
   pick("belt", o.belt, migrateBelt, (x) => (state.belt = x));
   if (o.unit === "60" || o.unit === "1") state.unit = o.unit;
   if (Array.isArray(o.imports)) state.imports = o.imports.filter((x) => typeof x === "string");
+  if (o.recipes && typeof o.recipes === "object" && !Array.isArray(o.recipes)) {
+    for (const [item, recipe] of Object.entries(o.recipes as Record<string, unknown>)) {
+      if (recipesFor(item).some((r) => r.id === recipe)) state.recipes[item] = recipe as string;
+      else unknown.push(`recipe ${JSON.stringify(recipe)} for ${item}`);
+    }
+  }
   if (unknown.length === 0) return { state };
   return {
     state,

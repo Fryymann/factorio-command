@@ -1,7 +1,15 @@
 // Pure extraction: Factorio's data dump + English locale -> GameData (src/data/types.ts).
 // The command-line wrapper is extract-data.ts. Anything unexpected in the dump throws, so a
 // new game version can't quietly produce wrong numbers.
-import type { Belt, GameData, Item, Machine, Recipe } from "../src/data/types.ts";
+import type {
+  Belt,
+  GameData,
+  Item,
+  ItemGroup,
+  ItemSubgroup,
+  Machine,
+  Recipe,
+} from "../src/data/types.ts";
 
 export type RawProto = Record<string, unknown>;
 /** data-raw-dump.json: prototype type -> name -> prototype. */
@@ -10,8 +18,9 @@ type Names = Record<string, string>;
 
 export interface ExtractInput {
   dump: RawDump;
-  /** The "names" tables of item-, fluid-, entity- and recipe-locale.json (--dump-prototype-locale). */
-  locale: { item: Names; fluid: Names; entity: Names; recipe: Names };
+  /** The "names" tables of item-, fluid-, entity-, recipe- and item-group-locale.json
+   * (--dump-prototype-locale). */
+  locale: { item: Names; fluid: Names; entity: Names; recipe: Names; itemGroup: Names };
   factorioVersion: string;
   mods: string[];
 }
@@ -95,9 +104,27 @@ export function extract(input: ExtractInput): ExtractResult {
   }
 
   const items: Record<string, Item> = {};
+  const subgroups: Record<string, ItemSubgroup> = {};
+  const groups: Record<string, ItemGroup> = {};
   for (const [id, kind] of [...used].sort(([a], [b]) => a.localeCompare(b))) {
-    items[id] =
-      kind === "fluid" ? readFluid(id, dump, locale.fluid) : readItem(id, dump, locale.item);
+    const raw = kind === "fluid" ? fluidProto(id, dump) : itemProto(id, dump);
+    const name = nameOf(kind, id, kind === "fluid" ? locale.fluid : locale.item);
+    const sub = readSubgroup(id, raw, dump);
+    subgroups[sub.id] = sub;
+    groups[sub.group] ??= readGroup(sub.group, dump, locale.itemGroup);
+    const item: Item = {
+      id,
+      name,
+      fluid: kind === "fluid",
+      group: sub.group,
+      subgroup: sub.id,
+      order: String(raw.order ?? ""),
+    };
+    if (kind === "item" && raw.fuel_value !== undefined) {
+      const fuel = parseEnergy(String(raw.fuel_value), "J");
+      if (fuel > 0) item.fuelValue = fuel;
+    }
+    items[id] = item;
   }
 
   return {
@@ -108,6 +135,8 @@ export function extract(input: ExtractInput): ExtractResult {
       recipes,
       machines,
       belts: readBelts(dump, locale.entity),
+      groups,
+      subgroups,
     },
     skipped,
   };
@@ -177,20 +206,32 @@ function footprint(id: string, box: unknown): number {
   return w;
 }
 
-function readItem(id: string, dump: RawDump, names: Names): Item {
+function itemProto(id: string, dump: RawDump): RawProto {
   const raw = Object.values(dump).find((protos) => protos[id]?.stack_size !== undefined)?.[id];
   if (!raw) throw new Error(`item ${id} is used by a recipe but isn't in the dump`);
-  const item: Item = { id, name: nameOf("item", id, names), fluid: false };
-  if (raw.fuel_value !== undefined) {
-    const fuel = parseEnergy(String(raw.fuel_value), "J");
-    if (fuel > 0) item.fuelValue = fuel;
-  }
-  return item;
+  return raw;
 }
 
-function readFluid(id: string, dump: RawDump, names: Names): Item {
-  if (!dump.fluid?.[id]) throw new Error(`fluid ${id} is used by a recipe but isn't in the dump`);
-  return { id, name: nameOf("fluid", id, names), fluid: true };
+function fluidProto(id: string, dump: RawDump): RawProto {
+  const raw = dump.fluid?.[id];
+  if (!raw) throw new Error(`fluid ${id} is used by a recipe but isn't in the dump`);
+  return raw;
+}
+
+function readSubgroup(item: string, raw: RawProto, dump: RawDump): ItemSubgroup {
+  const id = raw.subgroup;
+  if (typeof id !== "string") throw new Error(`${item} has no crafting-menu subgroup`);
+  const sub = dump["item-subgroup"]?.[id];
+  if (!sub || typeof sub.group !== "string") {
+    throw new Error(`${item}: subgroup ${id} isn't in the dump or has no group`);
+  }
+  return { id, group: sub.group, order: String(sub.order ?? "") };
+}
+
+function readGroup(id: string, dump: RawDump, names: Names): ItemGroup {
+  const g = dump["item-group"]?.[id];
+  if (!g) throw new Error(`item group ${id} isn't in the dump`);
+  return { id, name: nameOf("item group", id, names), order: String(g.order ?? "") };
 }
 
 function readBelts(dump: RawDump, names: Names): Record<string, Belt> {

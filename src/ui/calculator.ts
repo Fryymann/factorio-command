@@ -1,10 +1,10 @@
 // Calculator tab: rendering and wiring. Ported from artifacts/FCP_v1-2.html, lines 549-652.
 // Rates are per second everywhere except here: the per-minute conversion happens in `rateStr`.
-import { isFluid, plannedRecipe, itemName } from "../data/game.ts";
+import { isFluid, itemName, plannedRecipe, recipesFor } from "../data/game.ts";
 import { fmt } from "../data/format.ts";
 import { beltUsage, consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
-import { esc, el, groupedOptions, sw } from "./common.ts";
+import { esc, el, groupedOptions, sw, unsupportedOptions } from "./common.ts";
 import { planSettings } from "./planInput.ts";
 import { rateStr, state, stateLoadError, unitLbl } from "./state.ts";
 import { createStateSaver, saveState } from "./storage.ts";
@@ -22,13 +22,26 @@ export function mountCalculator(onSend: () => void): void {
     return `<button type="button" class="pill${on ? " on" : ""}" data-imp="${esc(id)}" aria-pressed="${on}" title="${title}">${on ? "Imported" : "Import"}</button>`;
   };
 
+  /** A recipe picker for an item the game makes several ways (solid fuel today), else nothing. */
+  const recipePick = (b: BuildRow): string => {
+    const rs = recipesFor(b.id);
+    if (rs.length < 2) return "";
+    const opts = rs
+      .map(
+        (r) =>
+          `<option value="${r.id}"${r.id === b.recipe ? " selected" : ""}>${esc(r.name)}</option>`,
+      )
+      .join("");
+    return `<select class="recipe-pick" data-recipe="${esc(b.id)}" aria-label="Recipe for ${esc(itemName(b.id))}">${opts}</select>`;
+  };
+
   function buildRows(build: BuildRow[]): string {
     return (
       build
         .map((b) => {
           const pct = Math.min(1, b.exact / b.count);
           return `<tr>
-      <td><span class="item">${sw(b.id)}${esc(itemName(b.id))}</span></td>
+      <td><span class="item">${sw(b.id)}${esc(itemName(b.id))}</span>${recipePick(b)}</td>
       <td class="num">${rateStr(b.rate)}</td>
       <td class="mach">${b.machine.name}</td>
       <td class="big"><span class="exact">${fmt(b.exact, 2)}</span>${b.count}<span class="util${pct > 0.999 ? " full" : ""}" title="${Math.round(pct * 100)}% busy"><i style="width:${pct * 100}%"></i></span></td>
@@ -133,7 +146,7 @@ export function mountCalculator(onSend: () => void): void {
     render();
   }
 
-  el("item").innerHTML = groupedOptions();
+  el("item").innerHTML = groupedOptions() + unsupportedOptions();
 
   const onChange = <K extends keyof CalcState>(id: string, key: K): void => {
     el<HTMLSelectElement>(id).addEventListener("change", (e) => {
@@ -165,6 +178,13 @@ export function mountCalculator(onSend: () => void): void {
     state.imports = state.imports.includes(id)
       ? state.imports.filter((x) => x !== id)
       : [...state.imports, id];
+    update();
+  });
+
+  el("view-calc").addEventListener("change", (e) => {
+    const sel = (e.target as HTMLElement).closest<HTMLSelectElement>("select[data-recipe]");
+    if (!sel?.dataset.recipe) return;
+    state.recipes = { ...state.recipes, [sel.dataset.recipe]: sel.value };
     update();
   });
 

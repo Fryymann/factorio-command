@@ -13,6 +13,25 @@ export interface Item {
   fluid: boolean;
   /** Energy per item when burned, in joules. Only for items that can be burned. */
   fuelValue?: number;
+  /** Where the game's crafting menu shows it: a group (tab), a subgroup (row) within it, and the
+   * item's place in that row. Sort by group order, then subgroup order, then this order. */
+  group: string;
+  subgroup: string;
+  order: string;
+}
+
+/** A tab of the game's crafting menu, e.g. "intermediate-products". */
+export interface ItemGroup {
+  id: string;
+  name: string; // English, from the game's locale
+  order: string;
+}
+
+/** A row within a crafting-menu tab, e.g. "raw-material". */
+export interface ItemSubgroup {
+  id: string;
+  group: string;
+  order: string;
 }
 
 export interface Recipe {
@@ -59,4 +78,7 @@ export interface GameData {
   recipes: Record<string, Recipe>;
   machines: Record<string, Machine>;
   belts: Record<string, Belt>; // slowest first
+  /** Crafting-menu tabs and rows that the items above use. */
+  groups: Record<string, ItemGroup>;
+  subgroups: Record<string, ItemSubgroup>;
 }

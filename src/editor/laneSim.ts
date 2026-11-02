@@ -222,7 +222,7 @@ export function laneSim(ents: EdEnt[], U: number): LaneSimResult {
   const checks: Check[] = [];
   for (const m of ents) {
     if (m.t !== "machine") continue;
-    const rec = plannedRecipe(m.item);
+    const rec = plannedRecipe(m.item, m.recipe ?? undefined);
     if (!rec) throw new Error(`laneSim: unknown recipe ${m.item}`);
     const need = Object.keys(rec.ingredients).filter((i) => !isFluid(i));
     if (/^(stone|steel)-furnace$/.test(m.ent)) need.push("coal");

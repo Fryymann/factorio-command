@@ -30,6 +30,7 @@ const { data, skipped } = extract({
     fluid: names("fluid"),
     entity: names("entity"),
     recipe: names("recipe"),
+    itemGroup: names("item-group"),
   },
   factorioVersion: base.version,
   mods: mods.map((m) => m.name),
