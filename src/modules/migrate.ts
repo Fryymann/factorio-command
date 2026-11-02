@@ -2,8 +2,10 @@
 // and belts by their rate ("15", sometimes the number 15). This maps them to entity names. A
 // value it doesn't recognise throws, naming the layout and the value, so the caller can refuse
 // the load and leave the saved data untouched rather than guess. Version 2 data goes through it
-// too: entity names pass through unchanged, and every machine, belt and item is still checked.
+// too: entity names pass through unchanged, and every machine, belt, item and blueprint inserter
+// type is still checked.
 import { GAME, own, recipesFor } from "../data/game.ts";
+import { INSERTERS } from "../data/legacy.ts";
 import { migrateBelt, migrateMach } from "../data/savedKeys.ts";
 import type { SavedLayout } from "./storage.ts";
 
@@ -17,18 +19,22 @@ export function migrateLayouts(layouts: Record<string, SavedLayout>): Record<str
 function migrateLayout(L: SavedLayout): SavedLayout {
   const where = `Layout "${String(L.name ?? L.id)}"`;
   const fail = (what: string, v: unknown): never => {
-    throw new Error(`${where} names a ${what} this version doesn't know: ${JSON.stringify(v)}.`);
+    throw new Error(`${where} names ${what} this version doesn't know: ${JSON.stringify(v)}.`);
   };
-  const mach = (v: unknown) => migrateMach(v) ?? fail("machine", v);
+  const mach = (v: unknown) => migrateMach(v) ?? fail("a machine", v);
   // The artifact's simulation read a missing belt as the transport belt (15/s).
   const belt = (v: unknown) =>
     v === undefined || v === null || v === ""
       ? "transport-belt"
-      : (migrateBelt(v) ?? fail("belt", v));
+      : (migrateBelt(v) ?? fail("a belt", v));
 
   const recipe = (forItem: string, v: unknown) =>
-    recipesFor(forItem).some((r) => r.id === v) ? (v as string) : fail("recipe", v);
-  const item = (v: unknown) => (typeof v === "string" && own(GAME.items, v) ? v : fail("item", v));
+    recipesFor(forItem).some((r) => r.id === v) ? (v as string) : fail("a recipe", v);
+  const item = (v: unknown) =>
+    typeof v === "string" && own(GAME.items, v) ? v : fail("an item", v);
+  const ins: unknown = L.bp?.ins;
+  if (ins !== undefined && !(typeof ins === "string" && own(INSERTERS, ins)))
+    fail("an inserter", ins);
 
   const out: SavedLayout = {
     ...L,
