@@ -79,7 +79,9 @@ const usable = (r: Recipe) =>
 // from them.
 const UNSUPPORTED = new Map<string, string>([["rocket-part", ROCKET_LAUNCH]]);
 for (const r of Object.values(GAME.recipes)) {
-  if (r.categories.includes("centrifuging"))
+  // Uranium processing and Kovarex make two products at once; the planner handles one per recipe.
+  // Other centrifuge recipes (nuclear fuel) make one and are caught below by what they need.
+  if (r.categories.includes("centrifuging") && Object.keys(r.products).length > 1)
     for (const p of Object.keys(r.products)) UNSUPPORTED.set(p, URANIUM);
 }
 for (const id of Object.keys(GAME.items)) {
