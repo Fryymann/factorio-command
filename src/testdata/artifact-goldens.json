@@ -114,13 +114,13 @@
         },
         {
           "id": "n15",
-          "from": "n5",
+          "from": "n2",
           "to": "n7",
           "belt": "15"
         },
         {
           "id": "n16",
-          "from": "n2",
+          "from": "n5",
           "to": "n7",
           "belt": "15"
         },
@@ -237,10 +237,10 @@
       "pairs": 9,
       "cols": [
         ["copper-plate", 0, true, 1.5, 3],
-        ["iron-plate", 3, true, 5.5, 49],
+        ["iron-plate", 3, true, 5.5, 47],
         ["copper-cable", 6, false, 3, 13],
         ["electronic-circuit", 9, false, 1, 37],
-        ["iron-gear-wheel", 12, false, 1.5, 47],
+        ["iron-gear-wheel", 12, false, 1.5, 49],
         ["inserter", 15, false, 1, 57],
         ["transport-belt", 18, false, 1, 59],
         ["logistic-science-pack", 21, false, 1, 66]
@@ -253,12 +253,12 @@
         ["transport-belt", 1, 0, 1, 46, 54, []],
         ["logistic-science-pack", 8, 0, 1, 56, 64, []]
       ],
-      "entsHash": "8e6b024a5b40d435",
+      "entsHash": "ff4cb6d06b6aa705",
       "nEnts": 550
     },
     "ed": {
       "n": 550,
-      "hash": "cfb0997ccede3065",
+      "hash": "034cee915a88a4e7",
       "feeds": [
         [0, 0, "copper-plate"],
         [3, 0, "iron-plate"]
@@ -269,9 +269,9 @@
       "mixed": 0,
       "pairs": 9
     },
-    "bpoHash": "3057ac26580804e4",
+    "bpoHash": "7cdda15c192184c4",
     "bpoN": 550,
-    "edBpoHash": "a2feaa4f8111409a",
+    "edBpoHash": "c09f63c8ef47098b",
     "edBpoLabel": "T (edited)"
   },
   "blue": {
@@ -356,18 +356,18 @@
         {
           "id": "n10",
           "kind": "machine",
-          "item": "plastic-bar",
-          "count": 1,
-          "mach": "chem",
+          "item": "electronic-circuit",
+          "count": 2,
+          "mach": "am2",
           "x": 648,
           "y": 638
         },
         {
           "id": "n11",
           "kind": "machine",
-          "item": "electronic-circuit",
-          "count": 2,
-          "mach": "am2",
+          "item": "plastic-bar",
+          "count": 1,
+          "mach": "chem",
           "x": 648,
           "y": 830
         },
@@ -460,13 +460,13 @@
         },
         {
           "id": "n24",
-          "from": "n7",
+          "from": "n11",
           "to": "n13",
           "belt": "15"
         },
         {
           "id": "n25",
-          "from": "n11",
+          "from": "n7",
           "to": "n13",
           "belt": "15"
         },
@@ -496,25 +496,25 @@
         },
         {
           "id": "n30",
-          "from": "n3",
+          "from": "n2",
           "to": "n10",
           "belt": "15"
         },
         {
           "id": "n31",
-          "from": "n4",
+          "from": "n7",
           "to": "n10",
           "belt": "15"
         },
         {
           "id": "n32",
-          "from": "n2",
+          "from": "n3",
           "to": "n11",
           "belt": "15"
         },
         {
           "id": "n33",
-          "from": "n7",
+          "from": "n4",
           "to": "n11",
           "belt": "15"
         },
@@ -558,20 +558,20 @@
         "mach": "am2"
       },
       {
-        "id": "plastic-bar",
-        "rate": 1.875,
-        "depth": 2,
-        "exact": 0.9375,
-        "count": 1,
-        "mach": "chem"
-      },
-      {
         "id": "electronic-circuit",
         "rate": 1.875,
         "depth": 2,
         "exact": 1.25,
         "count": 2,
         "mach": "am2"
+      },
+      {
+        "id": "plastic-bar",
+        "rate": 1.875,
+        "depth": 2,
+        "exact": 0.9375,
+        "count": 1,
+        "mach": "chem"
       },
       {
         "id": "engine-unit",
@@ -629,8 +629,8 @@
       "warn": [],
       "conflicts": 0,
       "counts": {
-        "belt": 1357,
-        "ug": 50,
+        "belt": 1363,
+        "ug": 48,
         "splitter": 4,
         "ins": 79,
         "long": 27,
@@ -638,17 +638,17 @@
         "machine": 37,
         "pipe": 12
       },
-      "pairs": 25,
+      "pairs": 24,
       "cols": [
         ["copper-plate", 0, true, 4.6875, 13],
         ["iron-plate", 3, true, 4.375, 43],
         ["coal", 6, true, 0.9375, 53],
         ["steel-plate", 9, true, 0.625, 84],
         ["copper-cable", 12, false, 9.375, 68],
-        ["electronic-circuit", 15, false, 1.875, 66],
+        ["electronic-circuit", 15, false, 1.875, 70],
         ["iron-gear-wheel", 18, false, 0.625, 80],
         ["pipe", 21, false, 1.25, 82],
-        ["plastic-bar", 24, false, 1.875, 70],
+        ["plastic-bar", 24, false, 1.875, 66],
         ["advanced-circuit", 27, false, 0.9375, 106],
         ["engine-unit", 30, false, 0.625, 108],
         ["sulfur", 33, false, 0.3125, 104],
@@ -666,12 +666,12 @@
         ["sulfur", 1, 0, 1, 91, 99, []],
         ["chemical-science-pack", 10, 0, 1, 101, 113, []]
       ],
-      "entsHash": "0ff014f2b97d59c8",
-      "nEnts": 1640
+      "entsHash": "d23333f04b90bb51",
+      "nEnts": 1644
     },
     "ed": {
-      "n": 1640,
-      "hash": "1a5cd9d9b890d434",
+      "n": 1644,
+      "hash": "b3a6e1b2cb24d389",
       "feeds": [
         [0, 0, "copper-plate"],
         [3, 0, "iron-plate"],
@@ -682,11 +682,11 @@
     "lane": {
       "checks": [],
       "mixed": 0,
-      "pairs": 25
+      "pairs": 24
     },
-    "bpoHash": "f08501a23eddb09c",
-    "bpoN": 1628,
-    "edBpoHash": "7e350126bf928ad8",
+    "bpoHash": "812affe03ca65ca2",
+    "bpoN": 1632,
+    "edBpoHash": "7dc0c133d611448e",
     "edBpoLabel": "T (edited)"
   }
 }

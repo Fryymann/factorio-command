@@ -24,6 +24,20 @@ describe("plannedRecipe", () => {
     expect(productOf(r, "iron-gear-wheel")).toBe(1);
   });
 
+  // The 7 recipes the hand-typed table listed in another order (#31). The game's order decides
+  // where bus columns and Modules blocks go.
+  it.each([
+    ["advanced-circuit", ["electronic-circuit", "plastic-bar", "copper-cable"]],
+    ["sulfuric-acid", ["sulfur", "iron-plate", "water"]],
+    ["electric-engine-unit", ["engine-unit", "lubricant", "electronic-circuit"]],
+    ["battery", ["sulfuric-acid", "iron-plate", "copper-plate"]],
+    ["transport-belt", ["iron-plate", "iron-gear-wheel"]],
+    ["grenade", ["iron-plate", "coal"]],
+    ["rail", ["stone", "iron-stick", "steel-plate"]],
+  ])("lists the ingredients of %s in the game's order", (id, order) => {
+    expect(Object.keys(plannedRecipe(id)!.ingredients)).toEqual(order);
+  });
+
   it("leaves oil products, ores and water as raw inputs", () => {
     expect(plannedRecipe("petroleum-gas")).toBeUndefined();
     expect(plannedRecipe("iron-ore")).toBeUndefined();

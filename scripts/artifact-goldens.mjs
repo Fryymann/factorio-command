@@ -2,6 +2,8 @@
 // (artifacts/FCP_v1-2.html) in a Node vm for two reference chains. The port's tests compare
 // against that file, so "pinned behaviour" means "what the artifact does". Only run this if the
 // artifact or the reference chains change; review the diff of the JSON like any other number.
+// One input isn't the artifact's: its recipes get the game's ingredient order (#31), because
+// that order decides where bus columns and Modules blocks go. Everything else is its own code.
 //   node scripts/artifact-goldens.mjs
 import fs from "node:fs";
 import vm from "node:vm";
@@ -10,6 +12,20 @@ const lines = fs
   .readFileSync(new URL("../artifacts/FCP_v1-2.html", import.meta.url), "utf8")
   .split("\n");
 const R = (a, b) => lines.slice(a - 1, b).join("\n");
+const { recipes } = JSON.parse(
+  fs.readFileSync(new URL("../data/game-data.json", import.meta.url), "utf8"),
+);
+const gameOrder = Object.fromEntries(
+  Object.entries(recipes).map(([id, r]) => [id, Object.keys(r.ingredients)]),
+);
+// Keeps the artifact's amounts; only the order changes. Throws if the recipes no longer line up.
+const useGameOrder = `
+for (const [id, r] of Object.entries(RECIPES)) {
+  const order = (${JSON.stringify(gameOrder)})[id];
+  if (!order || order.length !== Object.keys(r.ins).length || !order.every((k) => k in r.ins))
+    throw new Error("Ingredients of " + id + " differ from the game data");
+  r.ins = Object.fromEntries(order.map((k) => [k, r.ins[k]]));
+}`;
 const out = {};
 const cases = {
   green: { item: "logistic-science-pack", amount: 8, imports: ["iron-plate", "copper-plate"] },
@@ -42,6 +58,7 @@ for (const [name, c] of Object.entries(cases)) {
       .replace("const state = { item", "var state = { item")
       .replace(/try \{ Object\.assign\(state, JSON\.parse\(localStorage[^\n]*\n/, "\n")
       .replace(/const save = [^\n]*\n/, "\n"),
+    useGameOrder,
     R(551, 551),
     R(555, 556),
     R(654, 821).replace(

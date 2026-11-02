@@ -15,32 +15,6 @@ export function own<T>(table: Readonly<Record<string, T>>, key: string): T | und
   return Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
-// The artifact's ingredient order for the 7 planned recipes where it differs from the game's. The
-// blueprint layout places bus columns and the Modules graph places blocks in ingredient order, so
-// the game's order gives different (still valid) layouts: blue science gets 6 more belts and 2
-// fewer undergrounds. Kept so the switch to game data changes no layout by itself; whether to
-// adopt the game's order is a separate decision.
-const ARTIFACT_INGREDIENT_ORDER: Record<string, readonly string[]> = {
-  "advanced-circuit": ["plastic-bar", "copper-cable", "electronic-circuit"],
-  "sulfuric-acid": ["iron-plate", "sulfur", "water"],
-  "electric-engine-unit": ["engine-unit", "electronic-circuit", "lubricant"],
-  battery: ["iron-plate", "copper-plate", "sulfuric-acid"],
-  "transport-belt": ["iron-gear-wheel", "iron-plate"],
-  grenade: ["coal", "iron-plate"],
-  rail: ["stone", "steel-plate", "iron-stick"],
-};
-
-function inArtifactOrder(r: Recipe): Recipe {
-  const order = ARTIFACT_INGREDIENT_ORDER[r.id];
-  if (!order) return r;
-  const keys = Object.keys(r.ingredients);
-  if (keys.length !== order.length || !order.every((k) => k in r.ingredients)) {
-    throw new Error(`Ingredient order for "${r.id}" no longer matches the game data`);
-  }
-  return { ...r, ingredients: Object.fromEntries(order.map((k) => [k, r.ingredients[k]!])) };
-}
-const ordered = new Map<string, Recipe>();
-
 function item(id: string): Item {
   const it = own(GAME.items, id);
   if (!it) throw new Error(`Unknown item "${id}"`);
@@ -130,11 +104,7 @@ export function plannedRecipe(id: string, choice?: string): Recipe | undefined {
         : `"${id}" has several recipes and no default`,
     );
   }
-  const cached = ordered.get(r.id);
-  if (cached) return cached;
-  const out = inArtifactOrder(r);
-  ordered.set(r.id, out);
-  return out;
+  return r;
 }
 
 const sortKey = (id: string) => {
