@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { beltUsage, solve } from "../solver/solve.ts";
-import { planSettings } from "./planInput.ts";
+import { planSettings, shownRows } from "./planInput.ts";
 import { DEFAULT_STATE, parseState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
 
@@ -11,6 +11,29 @@ const amountOf = (r: ReturnType<typeof planSettings>): number => {
   if (!r.ok) throw new Error(r.error);
   return r.settings.amount;
 };
+
+describe("what the Calculator's tables show", () => {
+  const rowsAt = (amount: number, mode: CalcState["mode"]) => {
+    const r = at(amount, mode);
+    if (!r.ok) throw new Error(r.error);
+    return shownRows(solve(r.settings));
+  };
+
+  // A row of 0 buildings divides 0 by 0 for its "busy" bar, which put NaN on the page (#18).
+  it.each(["buildings", "rate"] as const)("a target of 0 (%s) has no rows at all", (mode) => {
+    const { build, inputs } = rowsAt(0, mode);
+    expect(build).toEqual([]);
+    expect(inputs.size).toBe(0);
+  });
+
+  it("any other target keeps its rows: 8 AM2 of green science", () => {
+    const { build, inputs } = rowsAt(8, "buildings");
+    expect(build[0]).toMatchObject({ id: "logistic-science-pack", count: 8 });
+    expect(build).toHaveLength(8);
+    expect(inputs.get("iron-ore")?.rate).toBeCloseTo(5.5, 9);
+    expect(inputs.get("copper-ore")?.rate).toBeCloseTo(1.5, 9);
+  });
+});
 
 // Review Focus 1 (docs/game-data-switchover-plan.md): a calculator save written by the artifact
 // plans the same as before, end to end.

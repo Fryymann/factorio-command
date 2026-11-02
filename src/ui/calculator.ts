@@ -5,7 +5,7 @@ import { fmt } from "../data/format.ts";
 import { beltUsage, consumption, solve } from "../solver/solve.ts";
 import type { BuildRow, Plan } from "../solver/solve.ts";
 import { esc, el, groupedOptions, sw, unsupportedOptions } from "./common.ts";
-import { planSettings } from "./planInput.ts";
+import { planSettings, shownRows } from "./planInput.ts";
 import { rateStr, state, stateLoadError, unitLbl } from "./state.ts";
 import { createStateSaver, saveState } from "./storage.ts";
 import type { CalcState } from "./storage.ts";
@@ -90,7 +90,9 @@ export function mountCalculator(onSend: () => void): void {
     return rows.join("");
   }
 
-  function renderPlan({ tree, build, inputs }: Plan): void {
+  function renderPlan(plan: Plan): void {
+    const { tree } = plan;
+    const { build, inputs } = shownRows(plan);
     el("equiv").textContent =
       state.mode === "buildings"
         ? `= ${rateStr(tree.rate)} ${itemName(state.item)}${unitLbl()}`
@@ -103,7 +105,7 @@ export function mountCalculator(onSend: () => void): void {
       `${rateStr(consumption(build, "copper-plate"))}<small>${unitLbl()}</small>`;
     el("build").innerHTML = buildRows(build);
     el("inputs").innerHTML = inputRows(inputs);
-    el("tree").innerHTML = treeRows(tree);
+    el("tree").innerHTML = build.length ? treeRows(tree) : "";
   }
 
   /**
